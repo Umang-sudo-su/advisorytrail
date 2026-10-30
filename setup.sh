@@ -33,4 +33,4 @@ fi
 
 echo ""
 echo "Setup Complete! PostgreSQL and Redis are running on Docker."
-echo "To activate the backend Python environment, run: source services/api/.venv/bin/activate"
+echo "dTo activate the backend Python environment, run: source services/api/.venv/bin/activate"
