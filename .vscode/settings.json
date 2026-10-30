@@ -3,5 +3,6 @@
   "gitlens.statusBar.enabled": true,
   "gitlens.currentLine.enabled": true,
   "editor.formatOnSave": true,
-  "python.terminal.useEnvFile": true
+  "python.terminal.useEnvFile": true,
+  "files.autoSave": "afterDelay"
 }
