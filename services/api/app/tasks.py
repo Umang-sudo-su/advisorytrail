@@ -1,53 +1,75 @@
 import logging
+import asyncio
+import tempfile
+import os
 from app.database import SessionLocal
-from app.models import Scan, ScanStatus, Finding
+from app.models import Scan, ScanStatus, Finding, Repository
 from app.scanners.osv import run_osv_scanner
+from app.github import update_github_check
 
 logger = logging.getLogger(__name__)
 
-# WHAT THIS IS: A standalone function that takes the ID of the scan we just created.
 async def process_scan_background(scan_id: int, clone_url: str):
-    
-    # WHY WE OPEN A NEW SESSION: 
-    # In FastAPI, the database connection attached to the web router closes the EXACT second 
-    # we reply to GitHub. Since this background task runs AFTER we reply, if we try to use 
-    # the old session, the app will crash with a "Session Closed" error. 
-    # Opening 'SessionLocal()' here gives this background worker its own dedicated DB connection.
     async with SessionLocal() as db:
-        
-        # 1. Fetch the PENDING scan we just saved to the database
         scan = await db.get(Scan, scan_id)
         if not scan:
             return
 
-        # 2. Update the UI state to "RUNNING"
+        # Fetch the repository details so we know where to send the API request
+        repo = await db.get(Repository, scan.repository_id)
+
         scan.status = ScanStatus.RUNNING
         await db.commit()
-        logger.info(f"Scan {scan_id} marked as RUNNING.")
+        
+        # 1. NOTIFY GITHUB: SCAN STARTED
+        await update_github_check(repo.name, scan.commit_hash, "in_progress")
+        logger.info(f"Scan {scan_id} marked as RUNNING. GitHub Check updated.")
 
-        # 3. RUN THE SCANNER
-        # In a full production app, you would run 'git clone clone_url' here.
-        # For this tutorial, we will point the scanner at our current backend directory (".").
-        target_dir = "."
-        scan_results = await run_osv_scanner(target_dir)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_dir = os.path.join(tmpdir, "repo")
+            
+            clone_process = await asyncio.create_subprocess_exec(
+                "git", "clone", clone_url, repo_dir,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            await clone_process.communicate()
+            
+            if clone_process.returncode == 0:
+                checkout_process = await asyncio.create_subprocess_exec(
+                    "git", "checkout", scan.commit_hash,
+                    cwd=repo_dir,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE
+                )
+                await checkout_process.communicate()
 
-        # 4. PARSE THE FINDINGS
-        # We loop through the JSON dictionary returned by our OSV-Scanner adapter
-        # and translate the vulnerabilities into our database 'Finding' models.
-        for result in scan_results.get("results", []):
-            for pkg in result.get("packages", []):
-                for vuln in pkg.get("vulnerabilities", []):
-                    new_finding = Finding(
-                        scan_id=scan.id,
-                        osv_id=vuln.get("id", "UNKNOWN"),
-                        package_name=pkg.get("package", {}).get("name", "unknown"),
-                        package_version=pkg.get("package", {}).get("version", "unknown"),
-                        severity="High", # We default to High for this example
-                        details={"summary": vuln.get("summary", "No summary provided")}
-                    )
-                    db.add(new_finding) # Add to our database shopping cart
+                scan_results = await run_osv_scanner(repo_dir)
+                
+                # Track how many vulnerabilities we find
+                vuln_count = 0
 
-        # 5. COMPLETE THE SCAN
+                for result in scan_results.get("results", []):
+                    for pkg in result.get("packages", []):
+                        for vuln in pkg.get("vulnerabilities", []):
+                            vuln_count += 1
+                            new_finding = Finding(
+                                scan_id=scan.id,
+                                osv_id=vuln.get("id", "UNKNOWN"),
+                                package_name=pkg.get("package", {}).get("name", "unknown"),
+                                package_version=pkg.get("package", {}).get("version", "unknown"),
+                                severity="High",
+                                details={"summary": vuln.get("summary", "No summary provided")}
+                            )
+                            db.add(new_finding)
+
         scan.status = ScanStatus.COMPLETED
-        await db.commit() # Checkout / permanently save the status update and the findings
-        logger.info(f"Scan {scan_id} COMPLETED. Findings successfully saved.")
+        await db.commit()
+        
+        # 2. NOTIFY GITHUB: SCAN FINISHED
+        # If we found 1 or more vulnerabilities, the PR fails. Otherwise, it passes.
+        conclusion = "failure" if vuln_count > 0 else "success"
+        summary = f"BuildShield detected {vuln_count} high-severity vulnerabilities."
+        
+        await update_github_check(repo.name, scan.commit_hash, "completed", conclusion, summary)
+        logger.info(f"Scan {scan_id} COMPLETED. GitHub Check set to {conclusion}.")
