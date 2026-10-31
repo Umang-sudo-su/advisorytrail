@@ -6,6 +6,7 @@ from typing import List
 
 # Import our database connection and the models/schemas we built earlier
 from app.database import get_db
+from app.auth import get_current_user
 from app.models import Scan
 from app.schemas import ScanResponse
 
@@ -18,7 +19,8 @@ router = APIRouter(prefix="/api/v1/scans", tags=["Scans"])
 # response_model=List[ScanResponse] tells FastAPI to automatically convert our 
 # database results into the exact JSON format the React dashboard expects.
 @router.get("/", response_model=List[ScanResponse])
-async def get_all_scans(db: AsyncSession = Depends(get_db)):
+async def get_all_scans(db: AsyncSession = Depends(get_db),
+    current_user: str = Depends(get_current_user)):
     """
     Fetches all scans from the PostgreSQL database, including their associated findings.
     """

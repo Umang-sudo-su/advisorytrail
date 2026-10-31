@@ -3,6 +3,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from fastapi.middleware.cors import CORSMiddleware
+from app.routers import repositories, scans, webhooks, auth
 
 from app.database import get_db, engine, Base
 import app.models
@@ -34,6 +35,7 @@ app.add_middleware(
 app.include_router(repositories.router)
 app.include_router(scans.router)
 app.include_router(webhooks.router) # Newly added webhook router
+app.include_router(auth.router)     # Add this line right here
 
 @app.get("/health")
 async def health_check(db: AsyncSession = Depends(get_db)):
