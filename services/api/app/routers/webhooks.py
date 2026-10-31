@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, Depends, Header, HTTPException
+from fastapi import APIRouter, Request, Depends, Header, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 import logging
@@ -6,48 +6,37 @@ import logging
 from app.database import get_db
 from app.models import Repository, Scan, ScanStatus
 
-# We set up a basic logger so we can see when GitHub pings us in the terminal
-logger = logging.getLogger("uvicorn.error")
+# Import our new background worker
+from app.tasks import process_scan_background
 
+logger = logging.getLogger("uvicorn.error")
 router = APIRouter(prefix="/api/v1/webhooks", tags=["Webhooks"])
 
-# WHAT THIS DOES: We use @router.post because GitHub sends data via POST requests.
-# We also use 'Header' to automatically grab the 'x-github-event' header GitHub sends.
+# HOW IT WORKS: We add 'background_tasks: BackgroundTasks' to the function parameters.
+# FastAPI magically provides this object so we can attach background jobs to the request.
 @router.post("/github")
 async def github_webhook(
     request: Request, 
+    background_tasks: BackgroundTasks,
     x_github_event: str = Header(None),
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    Receives incoming webhook events from GitHub.
-    """
-    # 1. Verify this is actually an event we care about
     if x_github_event != "pull_request":
-        return {"status": "ignored", "reason": f"Event '{x_github_event}' not tracked"}
+        return {"status": "ignored"}
 
-    # 2. Extract the JSON payload GitHub sent us
     payload = await request.json()
     action = payload.get("action")
     
-    # We only want to run scans when a PR is newly opened or updated (synchronized)
     if action not in ["opened", "synchronize"]:
-        return {"status": "ignored", "reason": f"PR action '{action}' does not require a scan"}
+        return {"status": "ignored"}
 
-    # 3. Parse out the specific data we need from the massive GitHub JSON
     repo_data = payload.get("repository", {})
     pr_data = payload.get("pull_request", {})
     head_commit = pr_data.get("head", {}).get("sha", "unknown_hash")
     
-    logger.info(f"Received PR {action} event for {repo_data.get('full_name')} at commit {head_commit}")
-
-    # 4. DATABASE LOGIC: Check if we already have this repository in our database
-    repo_query = await db.execute(
-        select(Repository).filter_by(github_id=str(repo_data.get("id")))
-    )
+    repo_query = await db.execute(select(Repository).filter_by(github_id=str(repo_data.get("id"))))
     repo = repo_query.scalars().first()
 
-    # If the repo doesn't exist, create it dynamically
     if not repo:
         repo = Repository(
             github_id=str(repo_data.get("id")),
@@ -55,18 +44,16 @@ async def github_webhook(
             url=repo_data.get("html_url")
         )
         db.add(repo)
-        await db.flush() # Flush to generate the repo.id
+        await db.flush()
 
-    # 5. Create a new "PENDING" scan in the database for this specific commit
-    new_scan = Scan(
-        repository_id=repo.id,
-        commit_hash=head_commit,
-        status=ScanStatus.PENDING
-    )
+    new_scan = Scan(repository_id=repo.id, commit_hash=head_commit, status=ScanStatus.PENDING)
     db.add(new_scan)
-    
-    # 6. Commit the changes to permanently save the Repo and Scan
     await db.commit()
 
-    # Tell GitHub we successfully received and processed the webhook
+    # THE MAGIC HAPPENS HERE:
+    # Instead of running the scanner, we hand the job to our background task.
+    # FastAPI will immediately run the 'return' statement below to satisfy GitHub,
+    # and THEN start executing process_scan_background silently behind the scenes.
+    background_tasks.add_task(process_scan_background, scan_id=new_scan.id, clone_url=repo.url)
+
     return {"status": "success", "scan_queued_for_commit": head_commit}

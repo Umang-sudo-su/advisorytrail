@@ -1,0 +1,36 @@
+# 1. START THE DATABASE
+# What: Boots up PostgreSQL and Redis in the background.
+# Why: The FastAPI server will crash if it cannot connect to the database.
+cd ~/buildshield
+docker compose up -d
+
+# 2. START THE FASTAPI SERVER
+# What: Activates the Python virtual environment and starts the web server.
+# Why: This exposes our REST endpoints and webhook receivers on port 8000.
+cd ~/buildshield/services/api
+source .venv/bin/activate  # (Windows users: .venv\Scripts\activate)
+uvicorn app.main:app --reload --port 8000
+
+# 3. VERIFY HEALTH & DOCS
+# What: Open these links in your browser to prove the server is running.
+# - Health Check: http://localhost:8000/health
+# - Swagger API Docs: http://localhost:8000/docs
+
+# 4. SEED DUMMY DATA (Optional)
+# What: Injects fake repositories and findings into the database.
+# Why: Allows you to see populated JSON structures in the Swagger UI.
+# Open a second terminal tab in services/api and run:
+python seed.py
+
+# 5. DEMO THE ASYNC WEBHOOK & BACKGROUND WORKER
+# What: Simulates a GitHub Pull Request event.
+# Why: Proves that FastAPI instantly responds with "success" to prevent 
+# timeouts, while silently running the OSV-Scanner in the background.
+# Run this curl command in your second terminal tab:
+curl -X POST "http://localhost:8000/api/v1/webhooks/github" \
+     -H "Content-Type: application/json" \
+     -H "x-github-event: pull_request" \
+     -d '{"action": "opened", "repository": {"id": 998877, "full_name": "itzme44/test-repo", "html_url": "https://github.com/itzme44/test-repo"}, "pull_request": {"head": {"sha": "abc123def456"}}}'
+
+# Check the Uvicorn terminal (from Step 2). You will see logs proving the 
+# background task ran the OSV-Scanner and saved the findings to PostgreSQL.
