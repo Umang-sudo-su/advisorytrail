@@ -2,6 +2,22 @@ from pydantic import BaseModel, ConfigDict
 from typing import List, Optional, Any
 from datetime import datetime
 from app.models import ScanStatus
+from pydantic import BaseModel, EmailStr
+
+
+class UserCreate(BaseModel):
+    username: str
+    email: EmailStr
+    password: str
+
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    email: str
+    is_active: bool
+
+    class Config:
+        from_attributes = True
 
 # --- FINDINGS ---
 class FindingBase(BaseModel):
@@ -38,3 +54,19 @@ class RepositoryResponse(RepositoryBase):
     id: int
     scans: List[ScanResponse] = []
     model_config = ConfigDict(from_attributes=True)
+
+from pydantic import BaseModel, EmailStr
+
+class UserCreate(BaseModel):
+    username: str
+    email: EmailStr
+    password: str
+
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    email: str
+    is_active: bool
+
+    class Config:
+        from_attributes = True
