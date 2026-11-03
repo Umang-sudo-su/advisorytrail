@@ -1,8 +1,9 @@
+from pydantic import BaseModel, EmailStr
 from pydantic import BaseModel, ConfigDict
 from typing import List, Optional, Any
 from datetime import datetime
 from app.models import ScanStatus
-from pydantic import BaseModel, EmailStr
+
 
 
 class UserCreate(BaseModel):
