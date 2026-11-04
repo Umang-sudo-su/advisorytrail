@@ -1,39 +1,53 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from typing import List
+from datetime import datetime, timezone
 
-# Import our database connection and the models/schemas we built earlier
 from app.database import get_db
 from app.auth import get_current_user
-from app.models import Scan
-from app.schemas import ScanResponse
+from app.models import Scan, User
+from app.schemas import ScanResponse, ScanCreate
 
-# HOW IT WORKS: We create a router object. 
-# 'prefix="/api/v1/scans"' means every URL in this file automatically starts with this path.
-# 'tags=["Scans"]' organizes it neatly in the Swagger UI documentation.
 router = APIRouter(prefix="/api/v1/scans", tags=["Scans"])
 
-# WHAT THIS DOES: This handles HTTP GET requests to "/api/v1/scans/".
-# response_model=List[ScanResponse] tells FastAPI to automatically convert our 
-# database results into the exact JSON format the React dashboard expects.
 @router.get("/", response_model=List[ScanResponse])
-async def get_all_scans(db: AsyncSession = Depends(get_db),
-    current_user: str = Depends(get_current_user)):
-    """
-    Fetches all scans from the PostgreSQL database, including their associated findings.
-    """
-    
-    # WHY WE USE selectinload: 
-    # If we just fetch Scans, SQLAlchemy will have to make a separate trip to the 
-    # database for EVERY single finding attached to those scans (known as the N+1 problem).
-    # 'selectinload(Scan.findings)' tells the database: "Fetch the scans AND all their 
-    # findings at the exact same time in one efficient trip."
+async def get_all_scans(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     query = select(Scan).options(selectinload(Scan.findings))
-    
-    # Execute the query asynchronously (so the server doesn't freeze while waiting for the DB)
     result = await db.execute(query)
-    
-    # .scalars().all() extracts the actual Python objects from the raw database response
     return result.scalars().all()
+
+@router.post("/", response_model=ScanResponse, status_code=status.HTTP_201_CREATED)
+async def trigger_scan(scan: ScanCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    new_scan = Scan(
+        repository_id=scan.repository_id, 
+        commit_hash=scan.commit_hash, 
+        status="PENDING",
+        created_at=datetime.now(timezone.utc)
+    )
+    db.add(new_scan)
+    await db.commit()
+    await db.refresh(new_scan)
+    
+    setattr(new_scan, 'findings', [])
+    return new_scan
+
+@router.get("/{scan_id}", response_model=ScanResponse)
+async def get_scan(scan_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    query = select(Scan).where(Scan.id == scan_id).options(selectinload(Scan.findings))
+    result = await db.execute(query)
+    scan = result.scalars().first()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    return scan
+
+@router.delete("/{scan_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_scan(scan_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    query = select(Scan).where(Scan.id == scan_id)
+    result = await db.execute(query)
+    scan = result.scalars().first()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    await db.delete(scan)
+    await db.commit()

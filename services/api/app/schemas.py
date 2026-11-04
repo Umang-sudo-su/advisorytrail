@@ -1,10 +1,6 @@
-from pydantic import BaseModel, EmailStr
-from pydantic import BaseModel, ConfigDict
-from typing import List, Optional, Any
+from pydantic import BaseModel, EmailStr, ConfigDict
+from typing import List, Optional, Dict, Any
 from datetime import datetime
-from app.models import ScanStatus
-
-
 
 class UserCreate(BaseModel):
     username: str
@@ -14,60 +10,40 @@ class UserCreate(BaseModel):
 class UserResponse(BaseModel):
     id: int
     username: str
-    email: str
+    email: EmailStr
     is_active: bool
+    model_config = ConfigDict(from_attributes=True)
 
-    class Config:
-        from_attributes = True
+class RepositoryCreate(BaseModel):
+    name: str
+    url: str
 
-# --- FINDINGS ---
-class FindingBase(BaseModel):
+class RepositoryResponse(BaseModel):
+    id: int
+    name: str
+    url: str
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+class FindingResponse(BaseModel):
+    id: int
+    scan_id: int
     osv_id: str
     package_name: str
     package_version: str
     severity: str
-    details: Optional[Any] = None
-
-class FindingResponse(FindingBase):
-    id: int
-    scan_id: int
+    details: Optional[Dict[str, Any]] = None
     model_config = ConfigDict(from_attributes=True)
 
-# --- SCANS ---
-class ScanBase(BaseModel):
+class ScanCreate(BaseModel):
+    repository_id: int
     commit_hash: str
-    status: ScanStatus = ScanStatus.PENDING
 
-class ScanResponse(ScanBase):
+class ScanResponse(BaseModel):
     id: int
     repository_id: int
+    commit_hash: str
+    status: str
     created_at: datetime
     findings: List[FindingResponse] = []
     model_config = ConfigDict(from_attributes=True)
-
-# --- REPOSITORIES ---
-class RepositoryBase(BaseModel):
-    github_id: str
-    name: str
-    url: str
-
-class RepositoryResponse(RepositoryBase):
-    id: int
-    scans: List[ScanResponse] = []
-    model_config = ConfigDict(from_attributes=True)
-
-from pydantic import BaseModel, EmailStr
-
-class UserCreate(BaseModel):
-    username: str
-    email: EmailStr
-    password: str
-
-class UserResponse(BaseModel):
-    id: int
-    username: str
-    email: str
-    is_active: bool
-
-    class Config:
-        from_attributes = True
