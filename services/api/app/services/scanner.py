@@ -1,4 +1,5 @@
 import httpx
+import base64
 import re
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -16,7 +17,6 @@ jinja2==2.11.2
 """
 
 def parse_requirements(content: str):
-    """Parses package==version pairs from a requirements.txt file string."""
     packages = []
     for line in content.splitlines():
         line = line.strip()
@@ -27,10 +27,37 @@ def parse_requirements(content: str):
             packages.append((match.group(1), match.group(2)))
     return packages
 
-async def update_github_commit_status(owner_repo: str, commit_hash: str, state: str, description: str, target_url: str = None):
-    """Posts commit status check back to GitHub Status API."""
+async def fetch_manifest_from_github(owner_repo: str, commit_hash: str) -> str:
     if not settings.GITHUB_TOKEN:
-        print(f"[GitHub Status] Skipped: GITHUB_TOKEN env var not set.")
+        print("[GitHub API] GITHUB_TOKEN not set. Falling back to default test requirements.")
+        return DEFAULT_TEST_REQUIREMENTS
+
+    url = f"https://api.github.com/repos/{owner_repo}/contents/requirements.txt"
+    params = {"ref": commit_hash}
+    headers = {
+        "Authorization": f"Bearer {settings.GITHUB_TOKEN}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28"
+    }
+
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, params=params, headers=headers, timeout=10.0)
+            if resp.status_code == 200:
+                data = resp.json()
+                if "content" in data and "encoding" in data and data["encoding"] == "base64":
+                    decoded_bytes = base64.b64decode(data["content"])
+                    print(f"[GitHub API] Successfully fetched requirements.txt from {owner_repo}@{commit_hash[:7]}")
+                    return decoded_bytes.decode("utf-8")
+            print(f"[GitHub API] Could not fetch requirements.txt (status {resp.status_code}). Falling back to test defaults.")
+    except Exception as e:
+        print(f"[GitHub API] Error fetching manifest: {e}")
+
+    return DEFAULT_TEST_REQUIREMENTS
+
+async def update_github_commit_status(owner_repo: str, commit_hash: str, state: str, description: str, target_url: str = None):
+    if not settings.GITHUB_TOKEN:
+        print("[GitHub Status] Skipped: GITHUB_TOKEN env var not set.")
         return
 
     if not owner_repo or "/" not in owner_repo:
@@ -61,8 +88,7 @@ async def update_github_commit_status(owner_repo: str, commit_hash: str, state: 
     except Exception as e:
         print(f"[GitHub Status] Request failed: {e}")
 
-async def run_osv_scan(scan_id: int, manifest_content: str = None):
-    """Parses requirements, queries OSV batch API, and reports status to GitHub."""
+async def run_osv_scan(scan_id: int):
     async with AsyncSession(engine, expire_on_commit=False) as db:
         result = await db.execute(
             select(Scan).options(selectinload(Scan.repository)).where(Scan.id == scan_id)
@@ -92,8 +118,11 @@ async def run_osv_scan(scan_id: int, manifest_content: str = None):
             )
 
         try:
-            content_to_parse = manifest_content or DEFAULT_TEST_REQUIREMENTS
-            parsed_packages = parse_requirements(content_to_parse)
+            manifest_content = DEFAULT_TEST_REQUIREMENTS
+            if repo_identifier:
+                manifest_content = await fetch_manifest_from_github(repo_identifier, scan.commit_hash)
+
+            parsed_packages = parse_requirements(manifest_content)
 
             if not parsed_packages:
                 scan.status = ScanStatus.COMPLETED.value
