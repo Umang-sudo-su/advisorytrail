@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import Placeholder from './pages/Placeholder';
+import Dashboard from './pages/Dashboard';
 import Repositories from './pages/Repositories';
 import Scans from './pages/Scans';
 import Findings from './pages/Findings';
@@ -10,7 +11,7 @@ export default function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<Navigate to="/dashboard" replace />} />
-        <Route path="/dashboard"    element={<Placeholder name="Dashboard" />} />
+        <Route path="/dashboard"    element={<Dashboard />} />
         <Route path="/repositories" element={<Repositories />} />
         <Route path="/scans"        element={<Scans />} />
         <Route path="/findings"     element={<Findings />} />

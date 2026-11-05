@@ -46,3 +46,33 @@ export interface Finding {
   scanner: string;
   fingerprint: string;
 }
+export interface QueueItem {
+  id: string;
+  prNumber: number;
+  title: string;
+  repoName: string;
+  sha: string;
+  status: ScanStatus;
+  progress: number;
+}
+
+export interface RepoHealth {
+  name: string;
+  score: number;
+}
+
+export interface TrendPoint {
+  month: string;
+  score: number;
+}
+
+export interface DashboardData {
+  activeScans: number;
+  newHighCritical: number;
+  cleanPrs: number;
+  failedScans: number;
+  queue: QueueItem[];
+  healthTrend: TrendPoint[];
+  severity: Record<Severity, number>;
+  recentRepos: RepoHealth[];
+}

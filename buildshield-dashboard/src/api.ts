@@ -1,4 +1,4 @@
-import type { Repository, Scan, Finding } from './types';
+import type { Repository, Scan, Finding, DashboardData } from './types';
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -40,4 +40,37 @@ export async function getScans(): Promise<Scan[]> {
 export async function getFindings(): Promise<Finding[]> {
   await wait(600);
   return findings;
+}
+const dashboard: DashboardData = {
+  activeScans: 4,
+  newHighCritical: 7,
+  cleanPrs: 142,
+  failedScans: 2,
+  queue: [
+    { id: 'q1', prNumber: 142, title: 'Bump cryptography', repoName: 'acme/payment-service', sha: 'sha-a9b1c', status: 'running', progress: 20 },
+    { id: 'q2', prNumber: 89, title: 'Update PyJWT', repoName: 'acme/auth-service', sha: 'sha-a9b1c', status: 'running', progress: 35 },
+    { id: 'q3', prNumber: 204, title: 'Upgrade urllib3', repoName: 'acme/web-client', sha: 'sha-a9b1c', status: 'succeeded', progress: 100 },
+    { id: 'q4', prNumber: 12, title: 'Fix dependencies', repoName: 'acme/payment-service', sha: 'sha-a9b1c', status: 'timed_out', progress: 62 },
+    { id: 'q5', prNumber: 54, title: 'Update Django', repoName: 'acme/web-client', sha: 'sha-a9b1c', status: 'succeeded', progress: 100 },
+    { id: 'q6', prNumber: 33, title: 'Add validation', repoName: 'acme/auth-service', sha: 'sha-a9b1c', status: 'succeeded', progress: 100 },
+  ],
+  healthTrend: [
+    { month: 'Jan', score: 82 },
+    { month: 'Feb', score: 79 },
+    { month: 'Mar', score: 85 },
+    { month: 'Apr', score: 83 },
+    { month: 'May', score: 88 },
+  ],
+  severity: { critical: 1, high: 6, medium: 9, low: 4 },
+  recentRepos: [
+    { name: 'acme/payment-service', score: 75 },
+    { name: 'acme/auth-service', score: 96 },
+    { name: 'acme/web-client', score: 85.5 },
+    { name: 'acme/data-ingestor', score: 93 },
+  ],
+};
+
+export async function getDashboard(): Promise<DashboardData> {
+  await wait(600);
+  return dashboard;
 }
