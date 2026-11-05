@@ -43,4 +43,6 @@ export interface Finding {
   advisoryId: string;
   filePath: string;
   priorityReason: string;
+  scanner: string;
+  fingerprint: string;
 }

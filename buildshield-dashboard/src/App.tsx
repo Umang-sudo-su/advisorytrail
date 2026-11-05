@@ -3,6 +3,7 @@ import Layout from './components/Layout';
 import Placeholder from './pages/Placeholder';
 import Repositories from './pages/Repositories';
 import Scans from './pages/Scans';
+import Findings from './pages/Findings';
 
 export default function App() {
   return (
@@ -12,7 +13,7 @@ export default function App() {
         <Route path="/dashboard"    element={<Placeholder name="Dashboard" />} />
         <Route path="/repositories" element={<Repositories />} />
         <Route path="/scans"        element={<Scans />} />
-        <Route path="/findings"     element={<Placeholder name="Findings" />} />
+        <Route path="/findings"     element={<Findings />} />
         <Route path="/policies"     element={<Placeholder name="Policies" />} />
         <Route path="/audit-logs"   element={<Placeholder name="Audit Logs" />} />
       </Route>

@@ -236,3 +236,82 @@ body {
 .muted { color: var(--muted); }
 .high-count { color: #b3261e; font-weight: 600; }
 .badge-incomplete { background: #4b3f9e; color: #fff; }
+.badge-new { background: #bfeccb; color: #0f5132; }
+.badge-existing { background: var(--topbar); color: var(--text); }
+.badge-resolved { background: var(--running); color: #1d3f8a; }
+.badge-unknown { background: var(--border); color: var(--text); }
+
+.badge-critical { background: #7a1f10; color: #fff; }
+.badge-high { background: var(--bad); color: #7a1f10; }
+.badge-medium { background: var(--warn); color: #5c4400; }
+.badge-low { background: var(--ok); color: #0f5132; }
+
+.filter-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 32px;
+  margin-bottom: 24px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--sidebar);
+}
+.filter-panel .pills { margin-bottom: 0; }
+.filter-title { margin: 0 0 12px; font-size: 1.1rem; font-weight: 500; }
+
+.split {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 24px;
+  align-items: start;
+}
+.panel {
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--sidebar);
+}
+
+.finding-list { list-style: none; margin: 0; padding: 0; }
+.finding-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.finding-row:hover { background: var(--topbar); }
+.finding-row[aria-pressed='true'] { background: var(--active); }
+.finding-row:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+.row-badges { display: flex; gap: 8px; flex-shrink: 0; }
+
+.detail h3 { margin: 24px 0 8px; font-size: 1.05rem; }
+.detail h3:first-child { margin-top: 0; }
+.detail p { margin: 0; }
+
+.evidence {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 20px;
+  margin: 0;
+}
+.evidence dt { color: var(--muted); }
+.evidence dd { margin: 0; overflow-wrap: anywhere; }
+
+.diff {
+  overflow: hidden;
+  border-radius: 12px;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.95rem;
+}
+.diff-line { padding: 8px 12px; overflow-wrap: anywhere; }
+.diff-remove { background: #fde0da; color: #7a1f10; }
+.diff-add { background: #d6f3dd; color: #0f5132; }
