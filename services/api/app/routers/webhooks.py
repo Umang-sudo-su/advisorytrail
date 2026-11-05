@@ -1,95 +1,100 @@
 import hmac
 import hashlib
 import os
-import logging
-from fastapi import APIRouter, Request, Depends, Header, BackgroundTasks, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request, Header, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from datetime import datetime, timezone
 
 from app.database import get_db
 from app.models import Repository, Scan, ScanStatus
-from app.tasks import process_scan_background
-from dotenv import load_dotenv
+from app.services.scanner import run_osv_scan
 
-load_dotenv()
-logger = logging.getLogger("uvicorn.error")
 router = APIRouter(prefix="/api/v1/webhooks", tags=["Webhooks"])
 
-# Retrieve the secret from the environment variable
-GITHUB_SECRET = os.getenv("GITHUB_WEBHOOK_SECRET")
+GITHUB_WEBHOOK_SECRET = os.getenv("GITHUB_WEBHOOK_SECRET", "buildshield_secret_key")
 
+def verify_github_signature(payload_bytes: bytes, signature_header: str):
+    """Verifies the incoming payload against GitHub's X-Hub-Signature-256 header."""
+    if not signature_header:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing X-Hub-Signature-256 header"
+        )
+    
+    if not signature_header.startswith("sha256="):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid signature format. Expected 'sha256=...'"
+        )
 
-# Dependency to verify the GitHub signature
-async def verify_github_signature(request: Request, x_hub_signature_256: str = Header(None)):
-    # Fail closed with a clear message if the secret is not configured
-    if not GITHUB_SECRET:
-        logger.error("GITHUB_WEBHOOK_SECRET is not configured")
-        raise HTTPException(status_code=500, detail="Webhook secret not configured")
+    mac = hmac.new(GITHUB_WEBHOOK_SECRET.encode("utf-8"), msg=payload_bytes, digestmod=hashlib.sha256)
+    expected_signature = f"sha256={mac.hexdigest()}"
 
-    if not x_hub_signature_256:
-        raise HTTPException(status_code=401, detail="Missing signature header")
+    if not hmac.compare_digest(expected_signature, signature_header):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid GitHub webhook signature"
+        )
 
-    # We must read the raw body exactly as it was sent by GitHub
-    raw_body = await request.body()
-
-    # Calculate our own HMAC-SHA256 hash using our secret and the raw body
-    hash_object = hmac.new(
-        key=GITHUB_SECRET.encode("utf-8"),
-        msg=raw_body,
-        digestmod=hashlib.sha256,
-    )
-    expected_signature = "sha256=" + hash_object.hexdigest()
-
-    # Use constant-time comparison to prevent timing attacks
-    if not hmac.compare_digest(expected_signature, x_hub_signature_256):
-        raise HTTPException(status_code=403, detail="Invalid signature")
-
-
-@router.post("/github", dependencies=[Depends(verify_github_signature)])
+@router.post("/github", status_code=status.HTTP_202_ACCEPTED)
 async def github_webhook(
     request: Request,
     background_tasks: BackgroundTasks,
-    x_github_event: str = Header(None),
-    db: AsyncSession = Depends(get_db),
+    x_github_event: str = Header(..., alias="X-GitHub-Event"),
+    x_hub_signature_256: str = Header(None, alias="X-Hub-Signature-256"),
+    db: AsyncSession = Depends(get_db)
 ):
-    if x_github_event != "pull_request":
-        return {"status": "ignored"}
+    # 1. Read raw request payload bytes for signature calculation
+    body_bytes = await request.body()
+
+    # 2. Verify HMAC SHA-256 signature
+    verify_github_signature(body_bytes, x_hub_signature_256)
+
+    # 3. Process push event
+    if x_github_event != "push":
+        return {"message": f"Event '{x_github_event}' ignored"}
 
     payload = await request.json()
-    action = payload.get("action")
-
-    if action not in ["opened", "synchronize", "reopened"]:
-        return {"status": "ignored"}
-
     repo_data = payload.get("repository", {})
-    pr_data = payload.get("pull_request", {})
-    head_commit = pr_data.get("head", {}).get("sha", "unknown_hash")
+    repo_name = repo_data.get("name")
+    repo_url = repo_data.get("html_url")
+    commit_hash = payload.get("after")
 
-    repo_query = await db.execute(
-        select(Repository).filter_by(github_id=str(repo_data.get("id")))
-    )
-    repo = repo_query.scalars().first()
+    if not repo_name or not commit_hash:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid payload: missing repository name or commit hash"
+        )
+
+    # 4. Retrieve or register repository
+    result = await db.execute(select(Repository).where(Repository.name == repo_name))
+    repo = result.scalars().first()
 
     if not repo:
-        repo = Repository(
-            github_id=str(repo_data.get("id")),
-            name=repo_data.get("full_name"),
-            url=repo_data.get("html_url"),
-        )
+        repo = Repository(name=repo_name, url=repo_url)
         db.add(repo)
-        await db.flush()
+        await db.commit()
+        await db.refresh(repo)
 
-    # Ignore duplicate deliveries (GitHub retries or "Redeliver") for the same commit
-    existing = await db.execute(
-        select(Scan).filter_by(repository_id=repo.id, commit_hash=head_commit)
+    # 5. Create new pending scan
+    new_scan = Scan(
+        repository_id=repo.id,
+        commit_hash=commit_hash,
+        status=ScanStatus.PENDING.value,
+        created_at=datetime.now(timezone.utc)
     )
-    if existing.scalars().first():
-        return {"status": "duplicate", "commit": head_commit}
-
-    new_scan = Scan(repository_id=repo.id, commit_hash=head_commit, status=ScanStatus.PENDING)
     db.add(new_scan)
     await db.commit()
+    await db.refresh(new_scan)
 
-    background_tasks.add_task(process_scan_background, scan_id=new_scan.id, clone_url=repo.url)
+    # 6. Trigger background OSV scanner task
+    background_tasks.add_task(run_osv_scan, new_scan.id)
 
-    return {"status": "success", "scan_queued_for_commit": head_commit}
+    return {
+        "id": new_scan.id,
+        "repository_id": new_scan.repository_id,
+        "commit_hash": new_scan.commit_hash,
+        "status": new_scan.status,
+        "message": "Scan triggered successfully"
+    }

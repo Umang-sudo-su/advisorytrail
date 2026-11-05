@@ -1,39 +1,113 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from typing import List
+from typing import Optional, List
 
-# Import our database connection and the models/schemas we built earlier
 from app.database import get_db
-from app.auth import get_current_user
-from app.models import Scan
-from app.schemas import ScanResponse
+from app.models import Scan, ScanStatus, Finding, Repository
+from app.schemas import ScanCreate, ScanResponse, FindingResponse
+from app.services.scanner import run_osv_scan
 
-# HOW IT WORKS: We create a router object. 
-# 'prefix="/api/v1/scans"' means every URL in this file automatically starts with this path.
-# 'tags=["Scans"]' organizes it neatly in the Swagger UI documentation.
 router = APIRouter(prefix="/api/v1/scans", tags=["Scans"])
 
-# WHAT THIS DOES: This handles HTTP GET requests to "/api/v1/scans/".
-# response_model=List[ScanResponse] tells FastAPI to automatically convert our 
-# database results into the exact JSON format the React dashboard expects.
 @router.get("/", response_model=List[ScanResponse])
-async def get_all_scans(db: AsyncSession = Depends(get_db),
-    current_user: str = Depends(get_current_user)):
-    """
-    Fetches all scans from the PostgreSQL database, including their associated findings.
-    """
+async def list_scans(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    db: AsyncSession = Depends(get_db)
+):
+    """Retrieve a paginated list of all vulnerability scans."""
+    result = await db.execute(
+        select(Scan)
+        .options(selectinload(Scan.findings), selectinload(Scan.repository))
+        .offset(skip)
+        .limit(limit)
+    )
+    scans = result.scalars().all()
+    return scans
+
+@router.post("/", response_model=ScanResponse, status_code=status.HTTP_201_CREATED)
+async def trigger_manual_scan(
+    payload: ScanCreate,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db)
+):
+    """Manually trigger an OSV vulnerability scan for a repository and commit hash."""
+    repo_result = await db.execute(select(Repository).where(Repository.id == payload.repository_id))
+    repo = repo_result.scalars().first()
     
-    # WHY WE USE selectinload: 
-    # If we just fetch Scans, SQLAlchemy will have to make a separate trip to the 
-    # database for EVERY single finding attached to those scans (known as the N+1 problem).
-    # 'selectinload(Scan.findings)' tells the database: "Fetch the scans AND all their 
-    # findings at the exact same time in one efficient trip."
-    query = select(Scan).options(selectinload(Scan.findings))
+    if not repo:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Repository with id {payload.repository_id} not found"
+        )
+
+    new_scan = Scan(
+        repository_id=payload.repository_id,
+        commit_hash=payload.commit_hash,
+        status=ScanStatus.PENDING.value
+    )
+    db.add(new_scan)
+    await db.commit()
+    await db.refresh(new_scan)
+
+    # Dispatch background worker
+    background_tasks.add_task(run_osv_scan, new_scan.id)
+
+    # Reload scan with relationships for response
+    result = await db.execute(
+        select(Scan)
+        .options(selectinload(Scan.findings), selectinload(Scan.repository))
+        .where(Scan.id == new_scan.id)
+    )
+    return result.scalars().first()
+
+@router.get("/{scan_id}", response_model=ScanResponse)
+async def get_scan_detail(
+    scan_id: int,
+    severity: Optional[str] = Query(None, description="Filter findings by severity (e.g. HIGH, MODERATE, CRITICAL)"),
+    limit: int = Query(50, ge=1, le=200, description="Number of findings to return"),
+    offset: int = Query(0, ge=0, description="Offset for pagination of findings"),
+    db: AsyncSession = Depends(get_db)
+):
+    """Retrieve detailed scan results with optional severity filtering and pagination."""
+    scan_result = await db.execute(
+        select(Scan)
+        .options(selectinload(Scan.repository), selectinload(Scan.findings))
+        .where(Scan.id == scan_id)
+    )
+    scan = scan_result.scalars().first()
     
-    # Execute the query asynchronously (so the server doesn't freeze while waiting for the DB)
-    result = await db.execute(query)
+    if not scan:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Scan with id {scan_id} not found"
+        )
+
+    # Filter and paginate findings in-memory
+    filtered_findings = scan.findings
+    if severity:
+        filtered_findings = [f for f in filtered_findings if f.severity and f.severity.upper() == severity.upper()]
     
-    # .scalars().all() extracts the actual Python objects from the raw database response
-    return result.scalars().all()
+    scan.findings = filtered_findings[offset : offset + limit]
+    return scan
+
+@router.delete("/{scan_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_scan(
+    scan_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """Delete a specific vulnerability scan and its associated findings."""
+    result = await db.execute(select(Scan).where(Scan.id == scan_id))
+    scan = result.scalars().first()
+    
+    if not scan:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Scan with id {scan_id} not found"
+        )
+        
+    await db.delete(scan)
+    await db.commit()
+    return None
