@@ -1,3 +1,4 @@
+from app.routers import scans, stats  # <-- Add stats here
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,6 +37,7 @@ app.include_router(repositories.router)
 app.include_router(scans.router)
 app.include_router(webhooks.router) # Newly added webhook router
 app.include_router(auth.router)     # Add this line right here
+app.include_router(stats.router)
 
 @app.get("/health")
 async def health_check(db: AsyncSession = Depends(get_db)):
