@@ -30,8 +30,15 @@ async def trigger_scan(scan: ScanCreate, db: AsyncSession = Depends(get_db), cur
     await db.commit()
     await db.refresh(new_scan)
     
-    setattr(new_scan, 'findings', [])
-    return new_scan
+    # Return a dict to prevent SQLAlchemy from lazy-loading relationships synchronously
+    return {
+        "id": new_scan.id,
+        "repository_id": new_scan.repository_id,
+        "commit_hash": new_scan.commit_hash,
+        "status": new_scan.status,
+        "created_at": new_scan.created_at,
+        "findings": []
+    }
 
 @router.get("/{scan_id}", response_model=ScanResponse)
 async def get_scan(scan_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
