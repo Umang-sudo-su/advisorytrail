@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -6,31 +6,40 @@ from typing import List
 from datetime import datetime, timezone
 
 from app.database import get_db
-from app.auth import get_current_user
-from app.models import Scan, User
-from app.schemas import ScanResponse, ScanCreate
+from app.models import Scan, Repository, ScanStatus
+from app.schemas import ScanCreate, ScanResponse
+from app.routers.auth import get_current_user
+from app.services.scanner import run_osv_scan
 
 router = APIRouter(prefix="/api/v1/scans", tags=["Scans"])
 
-@router.get("/", response_model=List[ScanResponse])
-async def get_all_scans(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    query = select(Scan).options(selectinload(Scan.findings))
-    result = await db.execute(query)
-    return result.scalars().all()
+@router.post("/", status_code=status.HTTP_201_CREATED)
+async def trigger_scan(
+    scan_data: ScanCreate,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    result = await db.execute(select(Repository).where(Repository.id == scan_data.repository_id))
+    repo = result.scalars().first()
+    if not repo:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Repository with ID {scan_data.repository_id} not found"
+        )
 
-@router.post("/", response_model=ScanResponse, status_code=status.HTTP_201_CREATED)
-async def trigger_scan(scan: ScanCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     new_scan = Scan(
-        repository_id=scan.repository_id, 
-        commit_hash=scan.commit_hash, 
-        status="PENDING",
+        repository_id=scan_data.repository_id,
+        commit_hash=scan_data.commit_hash,
+        status=ScanStatus.PENDING.value,
         created_at=datetime.now(timezone.utc)
     )
     db.add(new_scan)
     await db.commit()
     await db.refresh(new_scan)
-    
-    # Return a dict to prevent SQLAlchemy from lazy-loading relationships synchronously
+
+    background_tasks.add_task(run_osv_scan, new_scan.id)
+
     return {
         "id": new_scan.id,
         "repository_id": new_scan.repository_id,
@@ -40,21 +49,30 @@ async def trigger_scan(scan: ScanCreate, db: AsyncSession = Depends(get_db), cur
         "findings": []
     }
 
-@router.get("/{scan_id}", response_model=ScanResponse)
-async def get_scan(scan_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    query = select(Scan).where(Scan.id == scan_id).options(selectinload(Scan.findings))
-    result = await db.execute(query)
-    scan = result.scalars().first()
-    if not scan:
-        raise HTTPException(status_code=404, detail="Scan not found")
-    return scan
+@router.get("/", response_model=List[ScanResponse])
+async def list_scans(
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    result = await db.execute(select(Scan).options(selectinload(Scan.findings)))
+    scans = result.scalars().all()
+    return scans
 
-@router.delete("/{scan_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_scan(scan_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    query = select(Scan).where(Scan.id == scan_id)
-    result = await db.execute(query)
+@router.get("/{scan_id}", response_model=ScanResponse)
+async def get_scan(
+    scan_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    result = await db.execute(
+        select(Scan)
+        .options(selectinload(Scan.findings))
+        .where(Scan.id == scan_id)
+    )
     scan = result.scalars().first()
     if not scan:
-        raise HTTPException(status_code=404, detail="Scan not found")
-    await db.delete(scan)
-    await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Scan with ID {scan_id} not found"
+        )
+    return scan
