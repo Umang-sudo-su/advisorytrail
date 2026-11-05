@@ -1,4 +1,4 @@
-import type { Repository, Scan, Finding, DashboardData } from './types';
+import type { Repository, Scan, Finding, DashboardData, PolicyData } from './types';
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -73,4 +73,17 @@ const dashboard: DashboardData = {
 export async function getDashboard(): Promise<DashboardData> {
   await wait(600);
   return dashboard;
+}
+const policies: PolicyData = {
+  mode: 'enforce',
+  rules: [
+    { id: 'block-new', text: 'Rule 1: New Critical/High Vulnerability with Fixed Version -> BLOCK PR Check Run', enabled: true, locked: false },
+    { id: 'warn-existing', text: 'Rule 2: Pre-existing Vulnerability in Baseline -> WARN ONLY', enabled: true, locked: false },
+    { id: 'incomplete', text: 'Rule 3: Failed or Timed-Out Scan -> INCOMPLETE CHECK (Never mark clean)', enabled: true, locked: true },
+  ],
+};
+
+export async function getPolicies(): Promise<PolicyData> {
+  await wait(600);
+  return policies;
 }

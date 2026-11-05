@@ -76,3 +76,16 @@ export interface DashboardData {
   severity: Record<Severity, number>;
   recentRepos: RepoHealth[];
 }
+export type PolicyMode = 'report' | 'warn' | 'enforce';
+
+export interface PolicyRule {
+  id: string;
+  text: string;
+  enabled: boolean;
+  locked: boolean;
+}
+
+export interface PolicyData {
+  mode: PolicyMode;
+  rules: PolicyRule[];
+}
