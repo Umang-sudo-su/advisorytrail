@@ -55,3 +55,9 @@ class Finding(Base):
     scan = relationship("Scan", back_populates="findings")
     
     status = Column(String, default="OPEN") 
+
+class Policy(Base):
+    __tablename__ = "policies"
+    id = Column(Integer, primary_key=True, index=True)
+    repository_id = Column(Integer, ForeignKey("repositories.id", ondelete="CASCADE"))
+    rule_type = Column(String, nullable=False)

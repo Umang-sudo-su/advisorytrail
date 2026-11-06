@@ -5,7 +5,7 @@ import json
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from app.models import Scan, ScanStatus, Finding
+from app.models import Scan, ScanStatus, Finding, Policy
 from app.database import engine
 from app.config import settings
 
@@ -184,10 +184,32 @@ async def run_osv_scan(scan_id: int):
                         total_findings += 1
 
             scan.status = ScanStatus.COMPLETED.value
+            
+            # --- POLICY EVALUATION ENGINE ---
+            policy_result = await db.execute(select(Policy).where(Policy.repository_id == scan.repository_id))
+            policy_rules = [p.rule_type for p in policy_result.scalars().all()]
+            
+            critical_count = sum(1 for f in scan.findings if f.severity == "CRITICAL") if hasattr(scan, "findings") else 0
+            
+            final_state = "success"
+            status_desc = f"BuildShield: {manifest_name} passed!"
+            
+            if total_findings > 0:
+                if "WARN_ON_PR" in policy_rules:
+                    final_state = "success"
+                    status_desc = f"BuildShield: {total_findings} vulns found (Warning Mode)."
+                elif "FAIL_ON_CRITICAL" in policy_rules:
+                    if critical_count > 0:
+                        final_state = "failure"
+                        status_desc = f"BuildShield: {critical_count} CRITICAL vulns found!"
+                    else:
+                        final_state = "success"
+                        status_desc = f"BuildShield: {total_findings} vulns found (None Critical)."
+                else:
+                    final_state = "failure"
+                    status_desc = f"BuildShield: {total_findings} vulnerabilities found in {manifest_name}."
+            
             await db.commit()
-
-            final_state = "failure" if total_findings > 0 else "success"
-            status_desc = f"BuildShield: {total_findings} vulnerabilities found in {manifest_name}." if total_findings > 0 else f"BuildShield: {manifest_name} passed!"
 
             if repo_identifier:
                 await update_github_commit_status(repo_identifier, scan.commit_hash, final_state, status_desc, f"http://127.0.0.1:8000/api/v1/scans/{scan.id}")
