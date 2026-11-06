@@ -38,6 +38,7 @@ async def github_webhook(
         return {"message": "pong"}
 
     commit_hash = None
+    base_commit_hash = None
     repo_data = payload.get("repository", {})
     repo_name = repo_data.get("full_name") or repo_data.get("name")
     repo_url = repo_data.get("html_url")
@@ -56,6 +57,7 @@ async def github_webhook(
             return {"message": f"Ignoring pull_request action: {action}"}
         
         commit_hash = payload.get("pull_request", {}).get("head", {}).get("sha")
+        base_commit_hash = payload.get("pull_request", {}).get("base", {}).get("sha")
 
     else:
         return {"message": f"Event {x_github_event} ignored."}

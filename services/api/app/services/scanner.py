@@ -117,19 +117,27 @@ async def run_osv_scan(scan_id: int):
             await update_github_commit_status(repo_identifier, scan.commit_hash, "pending", "Scanning dependencies...", f"http://127.0.0.1:8000/api/v1/scans/{scan.id}")
 
         try:
-            # 1. Fetch Manifest dynamically
+            # 1. Fetch Head and Base Manifests
             manifest_name, manifest_content = ("requirements.txt", DEFAULT_TEST_REQUIREMENTS)
+            base_parsed = []
+            
             if repo_identifier:
                 manifest_name, manifest_content = await fetch_manifest_from_github(repo_identifier, scan.commit_hash)
-            
-            # 2. Parse based on file type
+                
+                # Fetch Base to Diff
+                if getattr(scan, "base_commit_hash", None):
+                    base_name, base_content = await fetch_manifest_from_github(repo_identifier, scan.base_commit_hash)
+                    if base_name == "package-lock.json": base_parsed = parse_package_lock(base_content)
+                    elif base_name == "poetry.lock": base_parsed = parse_poetry_lock(base_content)
+                    else: base_parsed = parse_requirements_txt(base_content)
+
+            # 2. Parse Head Manifest
             parsed_packages = []
-            if manifest_name == "package-lock.json":
-                parsed_packages = parse_package_lock(manifest_content)
-            elif manifest_name == "poetry.lock":
-                parsed_packages = parse_poetry_lock(manifest_content)
-            else:
-                parsed_packages = parse_requirements_txt(manifest_content)
+            if manifest_name == "package-lock.json": parsed_packages = parse_package_lock(manifest_content)
+            elif manifest_name == "poetry.lock": parsed_packages = parse_poetry_lock(manifest_content)
+            else: parsed_packages = parse_requirements_txt(manifest_content)
+            
+            base_pkg_versions = {(p[0], p[1]) for p in base_parsed}
 
             if not parsed_packages:
                 scan.status = ScanStatus.COMPLETED.value
@@ -178,7 +186,8 @@ async def run_osv_scan(scan_id: int):
                             details={
                                 "summary": vuln.get("summary", "No summary provided"), 
                                 "ecosystem": pkg_eco, 
-                                "fixed_version": fixed_version
+                                "fixed_version": fixed_version,
+                                "is_new": (pkg_name, pkg_version) not in base_pkg_versions
                             }
                         ))
                         total_findings += 1

@@ -40,6 +40,7 @@ class Scan(Base):
 
     repository = relationship("Repository", back_populates="scans")
     findings = relationship("Finding", back_populates="scan", cascade="all, delete-orphan")
+    base_commit_hash = Column(String, nullable=True)
 
 class Finding(Base):
     __tablename__ = "findings"
