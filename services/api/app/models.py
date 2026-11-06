@@ -53,3 +53,5 @@ class Finding(Base):
     details = Column(JSON, nullable=True)
 
     scan = relationship("Scan", back_populates="findings")
+    
+    status = Column(String, default="OPEN") 
