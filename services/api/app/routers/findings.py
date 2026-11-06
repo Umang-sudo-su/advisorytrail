@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from pydantic import BaseModel
 from app.database import get_db
-from app.models import Finding
+from app.models import Finding, AuditLog
 
 router = APIRouter(prefix="/api/v1/findings", tags=["Findings"])
 
@@ -23,6 +23,16 @@ async def update_finding_status(finding_id: int, payload: FindingUpdate, db: Asy
         raise HTTPException(status_code=404, detail="Finding not found")
 
     finding.status = payload.status
+    
+    # --- AUDIT LOG ENTRY ---
+    db.add(AuditLog(
+        actor="umang@buildshield.dev",
+        action="FINDING_DISMISSED" if payload.status in ["DISMISSED", "FALSE_POSITIVE"] else "FINDING_STATUS_UPDATED",
+        resource_id=f"vuln-{finding.osv_id}",
+        justification=f"Status changed to {payload.status}",
+        category="Finding Reviews & Dismissals"
+    ))
+
     await db.commit()
     await db.refresh(finding)
 

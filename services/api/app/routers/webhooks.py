@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.database import get_db
 from app.config import settings
-from app.models import Repository, Scan, ScanStatus
+from app.models import AuditLog, Repository, Scan, ScanStatus
 from app.services.scanner import run_osv_scan
 
 router = APIRouter(prefix="/api/v1/webhooks", tags=["Webhooks"])
@@ -81,6 +81,15 @@ async def github_webhook(
         status=ScanStatus.PENDING.value
     )
     db.add(new_scan)
+    
+    # --- AUDIT LOG ENTRY ---
+    db.add(AuditLog(
+        actor="github-webhook-bot",
+        action="WEBHOOK_DELIVERY_DEDUPLICATED",
+        resource_id=f"repo-{repo.name.split('/')[-1]}",
+        justification="Automatic trigger on PR open",
+        category="GitHub Webhooks"
+    ))
     await db.commit()
     await db.refresh(new_scan)
 

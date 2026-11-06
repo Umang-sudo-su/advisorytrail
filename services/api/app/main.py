@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.routers import repositories, scans, webhooks, auth
 from app.routers import findings
 from app.routers import policies
+from app.routers import audit_logs
 from app.database import get_db, engine, Base
 import app.models
 from app.routers import repositories, scans, webhooks
@@ -41,6 +42,7 @@ app.include_router(auth.router)     # Add this line right here
 app.include_router(stats.router)
 app.include_router(findings.router)
 app.include_router(policies.router)
+app.include_router(audit_logs.router)  # Add this line to include the audit logs router
 
 @app.get("/health")
 async def health_check(db: AsyncSession = Depends(get_db)):

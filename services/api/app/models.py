@@ -62,3 +62,14 @@ class Policy(Base):
     id = Column(Integer, primary_key=True, index=True)
     repository_id = Column(Integer, ForeignKey("repositories.id", ondelete="CASCADE"))
     rule_type = Column(String, nullable=False)
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    timestamp = Column(DateTime, default=datetime.utcnow, index=True)
+    actor = Column(String, nullable=False)           # e.g., umang@buildshield.dev
+    action = Column(String, nullable=False)          # e.g., FINDING_DISMISSED, WEBHOOK_DELIVERY_DEDUPLICATED
+    resource_id = Column(String, nullable=False)     # e.g., vuln-998122
+    justification = Column(String, nullable=True)    # e.g., False positive identification
+    category = Column(String, nullable=False)        # e.g., Finding Reviews, Webhooks, Policies, Tenant Access
