@@ -1,9 +1,10 @@
 # BuildShield — Security & Reliability Platform
-                                      *BUILDSHIELD*    
-About this project: -
+
+
+# About this project: -
 Build shield is a GitHub- integrated security and reliability platform. Build shield is designed to help small software teams ship safer code with less security-tool noise and minimal manual investigation. It acts as a workflow, prioritization, and reporting layer that sits on top of existing security scanners rather than functioning as a standalone vulnerability scanner.   
          
-Core Problem It Solves: -
+# Core Problem It Solves: -
 
 Development teams often receive security findings from multiple tools. These reports frequently suffer from:
 •	Different, uncoordinated formats. 
@@ -11,7 +12,7 @@ Development teams often receive security findings from multiple tools. These rep
 •	A lack of pull-request context (making it hard to know if a vulnerability is brand new or pre-existing). 
 •	Excessive manual investigation requirements to determine validity and severity.
 
-How the Project Works (Key Features & Workflow): - 
+# How the Project Works (Key Features & Workflow): - 
 
 •	GitHub Integration: It installs as a GitHub App, listens for signed webhooks (such as when a pull request is opened or updated), and processes events asynchronously. 
 •	Controlled Scanners: It runs selected dependency scanners (starting with OSV-Scanner for Python and JavaScript/TypeScript projects) inside isolated background workers. 
@@ -68,6 +69,3 @@ uvicorn main:app –reload
 Once the server is running, you can access:
 •	Interactive API Docs (Swagger UI):  http://localhost:8000/docs
 •	Alternative Docs (Redoc):  http://localhost:8000/redoc
-
-
-
