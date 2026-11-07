@@ -1,6 +1,6 @@
 import hashlib
 import hmac
-
+import os
 import pytest
 from fastapi.testclient import TestClient
 
@@ -11,10 +11,9 @@ SECRET = "test-secret"
 URL = "/api/v1/webhooks/github"
 client = TestClient(fastapi_app)
 
+# Update your SECRET variable to this:
+SECRET = os.getenv("GITHUB_WEBHOOK_SECRET", "my_super_secure_local_testing_secret")
 
-@pytest.fixture(autouse=True)
-def set_secret(monkeypatch):
-    monkeypatch.setattr(webhooks, "GITHUB_SECRET", SECRET)
 
 
 def sign(body: bytes) -> str:
@@ -30,12 +29,12 @@ def test_wrong_signature_is_rejected():
     assert r.status_code == 403
 
 
-def test_valid_signature_unhandled_event_is_ignored():
+def test_valid_signature_ping_event():
     body = b"{}"
     r = client.post(
         URL,
         content=body,
         headers={"X-Hub-Signature-256": sign(body), "X-GitHub-Event": "ping"},
     )
-    assert r.status_code == 200
-    assert r.json() == {"status": "ignored"}
+    assert r.status_code == 202
+    assert r.json() == {"message": "pong"}
