@@ -10,6 +10,7 @@ Development teams often receive security findings from multiple tools. These rep
 •	Repeated duplicate issues from multiple scans. 
 •	A lack of pull-request context (making it hard to know if a vulnerability is brand new or pre-existing). 
 •	Excessive manual investigation requirements to determine validity and severity.
+
 How the Project Works (Key Features & Workflow): - 
 
 •	GitHub Integration: It installs as a GitHub App, listens for signed webhooks (such as when a pull request is opened or updated), and processes events asynchronously. 
