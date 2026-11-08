@@ -36,16 +36,20 @@ function RepoList({ repos, query }: { repos: Repository[]; query: string }) {
           <div className="card-row">
             <span className="chip">
               <GitBranch size={16} aria-hidden="true" />
-              {repo.branch}
+              {repo.branch || 'main'}
             </span>
             <div>
               <p className="label">Manifest</p>
               <div className="chips">
-                {repo.manifests.map((file) => (
-                  <span key={file} className="chip">
-                    {file}
-                  </span>
-                ))}
+                {(repo.manifests || []).length > 0 ? (
+                  (repo.manifests || []).map((file) => (
+                    <span key={file} className="chip">
+                      {file}
+                    </span>
+                  ))
+                ) : (
+                  <span className="chip muted" style={{ opacity: 0.7 }}>None</span>
+                )}
               </div>
             </div>
           </div>
@@ -53,7 +57,7 @@ function RepoList({ repos, query }: { repos: Repository[]; query: string }) {
           <div className="card-foot">
             <div>
               <p className="label">Latest scan</p>
-              <StatusBadge status={repo.latestScanStatus} />
+              <StatusBadge status={repo.latestScanStatus || 'unknown'} />
             </div>
             <button type="button" className="btn">
               <Plus size={16} aria-hidden="true" />

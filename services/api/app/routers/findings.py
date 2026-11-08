@@ -1,9 +1,12 @@
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
+from sqlalchemy import select
 from pydantic import BaseModel
+
 from app.database import get_db
 from app.models import Finding, AuditLog
+from app.schemas import FindingResponse
 
 router = APIRouter(prefix="/api/v1/findings", tags=["Findings"])
 
@@ -37,3 +40,10 @@ async def update_finding_status(finding_id: int, payload: FindingUpdate, db: Asy
     await db.refresh(finding)
 
     return {"message": "Finding status updated", "id": finding.id, "status": finding.status}
+
+@router.get("/", response_model=List[FindingResponse])
+async def list_findings(db: AsyncSession = Depends(get_db)):
+    query = select(Finding)
+    result = await db.execute(query)
+    findings = result.scalars().all()
+    return findings

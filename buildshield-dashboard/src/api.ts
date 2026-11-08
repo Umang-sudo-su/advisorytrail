@@ -28,19 +28,15 @@ const findings: Finding[] = [
 ];
 
 export async function getRepositories(): Promise<Repository[]> {
-  await wait(600);
-  return repositories;
+  return await fetchFromAPI('/api/v1/repositories/');
 }
-
 export async function getScans(): Promise<Scan[]> {
-  await wait(600);
-  return scans;
+  return await fetchFromAPI('/api/v1/scans/');
+}
+export async function getFindings(): Promise<Finding[]> {
+  return await fetchFromAPI('/api/v1/findings/');
 }
 
-export async function getFindings(): Promise<Finding[]> {
-  await wait(600);
-  return findings;
-}
 const dashboard: DashboardData = {
   activeScans: 4,
   newHighCritical: 7,
@@ -71,9 +67,10 @@ const dashboard: DashboardData = {
 };
 
 export async function getDashboard(): Promise<DashboardData> {
-  await wait(600);
-  return dashboard;
+  // Your backend calls this 'stats' instead of 'dashboard'
+  return await fetchFromAPI('/api/v1/stats/'); 
 }
+
 const policies: PolicyData = {
   mode: 'enforce',
   rules: [
@@ -86,4 +83,75 @@ const policies: PolicyData = {
 export async function getPolicies(): Promise<PolicyData> {
   await wait(600);
   return policies;
+}
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+export async function fetchFromAPI(endpoint: string, options: RequestInit = {}) {
+    const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    const url = `${API_BASE}${path}`;
+    
+    const token = localStorage.getItem('buildshield_token');
+    
+    // Set up headers, merging any custom headers passed in
+    const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...(options.headers as Record<string, string> || {}),
+    };
+
+    // If we have a token, attach it
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    try {
+        const response = await fetch(url, {
+            ...options,
+            headers,
+        });
+
+        if (response.status === 401) {
+            // Token expired or invalid
+            localStorage.removeItem('buildshield_token');
+            window.location.href = '/login'; 
+            throw new Error('Unauthorized');
+        }
+
+        if (!response.ok) {
+            throw new Error(`API error: ${response.status}`);
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error("Failed to fetch from API:", error);
+        throw error;
+    }
+}
+
+export async function loginUser(email: string, password: string) {
+    const formData = new URLSearchParams();
+    formData.append('username', email); // FastAPI OAuth2 expects the key to be 'username'
+    formData.append('password', password);
+
+    const response = await fetch(`${API_BASE}/login`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: formData,
+    });
+
+    if (!response.ok) {
+        throw new Error('Invalid credentials');
+    }
+
+    const data = await response.json();
+    // Save the access token to the browser
+    localStorage.setItem('buildshield_token', data.access_token);
+    return data;
+}
+
+export function logoutUser() {
+    localStorage.removeItem('buildshield_token');
+    window.location.href = '/login';
 }
