@@ -155,3 +155,20 @@ export function logoutUser() {
     localStorage.removeItem('buildshield_token');
     window.location.href = '/login';
 }
+
+export async function addRepository(data: { name: string; url: string; branch: string }) {
+    return await fetchFromAPI('/api/v1/repositories/', {
+        method: 'POST',
+        body: JSON.stringify(data),
+    });
+}
+
+export async function triggerScan(repositoryId: string | number) {
+    return await fetchFromAPI('/api/v1/scans/', {
+        method: 'POST',
+        body: JSON.stringify({ 
+            repository_id: repositoryId,
+            commit_hash: "HEAD" 
+        }),
+    });
+}

@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { getFindings } from '../api';
 import { useFetch } from '../useFetch';
-import type { Finding, ChangeType, Severity, ReviewStatus } from '../types';
+import type { Severity, ReviewStatus } from '../types';
 import { Loading, ErrorState, EmptyState } from '../components/PageState';
 
-const changeFilters: { key: ChangeType; label: string }[] = [
+const changeFilters: { key: string; label: string }[] = [
   { key: 'new', label: 'New in PR' },
   { key: 'existing', label: 'Existing' },
   { key: 'resolved', label: 'Resolved' },
@@ -24,14 +24,14 @@ const reviewOptions: { key: ReviewStatus; label: string }[] = [
   { key: 'false_positive', label: 'False Positive' },
 ];
 
-const changeLabel: Record<ChangeType, string> = {
+const changeLabel: Record<string, string> = {
   new: 'NEW',
   existing: 'EXISTING',
   resolved: 'RESOLVED',
   unknown: 'UNKNOWN',
 };
 
-const severityRank: Record<Severity, number> = {
+const severityRank: Record<string, number> = {
   critical: 0,
   high: 1,
   medium: 2,
@@ -43,14 +43,14 @@ function FindingDetail({
   review,
   onReview,
 }: {
-  finding: Finding;
+  finding: any;
   review: ReviewStatus;
   onReview: (status: ReviewStatus) => void;
 }) {
   return (
     <div className="detail">
       <h3>Deterministic Priority Reason</h3>
-      <p>{finding.priorityReason}</p>
+      <p>{finding.priorityReason || 'Vulnerable package version detected by scanner engine.'}</p>
 
       <h3>Traceable Source Evidence</h3>
       <dl className="evidence">
@@ -58,7 +58,7 @@ function FindingDetail({
         <dd>{finding.scanner}</dd>
         <dt>File</dt>
         <dd>{finding.filePath}</dd>
-        <dt>Advisory</dt>
+        <dt>Primary Advisory</dt>
         <dd>
           <a
             href={`https://github.com/advisories/${finding.advisoryId}`}
@@ -68,8 +68,8 @@ function FindingDetail({
             {finding.advisoryId}
           </a>
         </dd>
-        <dt>Fingerprint</dt>
-        <dd>{finding.fingerprint}</dd>
+        <dt>Total Advisories</dt>
+        <dd>{finding.advisoryCount} vulnerability advisories merged</dd>
       </dl>
 
       <h3>Remediation Diff</h3>
@@ -104,21 +104,62 @@ function FindingDetail({
   );
 }
 
-function FindingsView({ findings }: { findings: Finding[] }) {
-  const [change, setChange] = useState<ChangeType>('new');
+function FindingsView({ findings }: { findings: any[] }) {
+  const [change, setChange] = useState<string>('new');
   const [activeSeverities, setActiveSeverities] = useState<Severity[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [reviews, setReviews] = useState<Record<string, ReviewStatus>>({});
 
-  const countFor = (c: ChangeType) => findings.filter((f) => f.change === c).length;
+  const map = new Map<string, any>();
 
-  const shown = findings
+  findings.forEach((f) => {
+    let details = f.details;
+    if (typeof details === 'string') {
+      try { details = JSON.parse(details); } catch (e) { details = {}; }
+    }
+    details = details || {};
+
+    const pkgName = f.package_name || 'unknown';
+    const pkgVer = f.package_version || '0.0.0';
+    const key = `${pkgName}@${pkgVer}`;
+    const sev = (f.severity || 'low').toLowerCase();
+
+    if (!map.has(key)) {
+      map.set(key, {
+        id: String(f.id),
+        change: 'new',
+        severity: sev,
+        packageName: pkgName,
+        currentVersion: pkgVer,
+        fixedVersion: details.fixed_version || null,
+        priorityReason: details.summary || null,
+        scanner: details.ecosystem || 'osv-scanner',
+        filePath: 'N/A',
+        advisoryId: f.osv_id || 'UNKNOWN',
+        advisoryCount: 1,
+        reviewStatus: (f.status || 'open').toLowerCase() as ReviewStatus,
+      });
+    } else {
+      const existing = map.get(key);
+      existing.advisoryCount += 1;
+      if ((severityRank[sev] ?? 99) < (severityRank[existing.severity] ?? 99)) {
+        existing.severity = sev;
+        existing.advisoryId = f.osv_id || existing.advisoryId;
+      }
+    }
+  });
+
+  const normalizedFindings = Array.from(map.values());
+
+  const countFor = (c: string) => normalizedFindings.filter((f) => f.change === c).length;
+
+  const shown = normalizedFindings
     .filter(
       (f) =>
         f.change === change &&
-        (activeSeverities.length === 0 || activeSeverities.includes(f.severity)),
+        (activeSeverities.length === 0 || activeSeverities.includes(f.severity as Severity)),
     )
-    .sort((a, b) => severityRank[a.severity] - severityRank[b.severity]);
+    .sort((a, b) => (severityRank[a.severity] ?? 99) - (severityRank[b.severity] ?? 99));
 
   const selected = shown.find((f) => f.id === selectedId) ?? shown[0];
 
@@ -169,7 +210,7 @@ function FindingsView({ findings }: { findings: Finding[] }) {
       <div className="split">
         <section className="panel" aria-labelledby="list-title">
           <h2 id="list-title" className="section-title">
-            Normalized Dependency Findings
+            Normalized Dependency Findings ({shown.length} unique packages)
           </h2>
           {shown.length === 0 ? (
             <EmptyState
@@ -187,7 +228,7 @@ function FindingsView({ findings }: { findings: Finding[] }) {
                     onClick={() => setSelectedId(f.id)}
                   >
                     <span>
-                      {f.packageName} ({f.currentVersion} {'->'} Fixed: {f.fixedVersion ?? 'none yet'})
+                      <strong>{f.packageName}</strong> ({f.currentVersion} {'->'} Fixed: {f.fixedVersion ?? 'none yet'})
                     </span>
                     <span className="row-badges">
                       <span className={`badge badge-${f.change}`}>{changeLabel[f.change]}</span>

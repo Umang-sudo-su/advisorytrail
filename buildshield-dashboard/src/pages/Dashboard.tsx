@@ -82,8 +82,16 @@ function TrendChart({ points }: { points: TrendPoint[] }) {
   );
 }
 
-function DashboardView({ data }: { data: DashboardData }) {
-  const safeSeverity = data?.severity || { critical: 0, high: 0, medium: 0, low: 0 };
+function DashboardView({ data }: { data: any }) {
+  // Map backend uppercase/snake_case JSON structure to frontend format
+  const rawSeverity = data?.severity_breakdown || {};
+  const safeSeverity = { 
+    critical: rawSeverity.CRITICAL || 0, 
+    high: rawSeverity.HIGH || 0, 
+    medium: rawSeverity.MEDIUM || 0, 
+    low: rawSeverity.LOW || 0 
+  };
+  
   const safeQueue = data?.queue || [];
   const safeHealthTrend = data?.healthTrend || [];
   const safeRecentRepos = data?.recentRepos || [];
@@ -93,19 +101,19 @@ function DashboardView({ data }: { data: DashboardData }) {
   return (
     <>
       <section className="stat-grid" aria-label="Scan summary">
-        <StatCard title="Active PR Scans" value={data?.activeScans || 0} tone="plain">
+        <StatCard title="Active PR Scans" value={data?.active_pr_scans || 0} tone="plain">
           <LoaderCircle size={18} className="spin" aria-hidden="true" />
           Running
         </StatCard>
-        <StatCard title="New PR Vulnerabilities" value={data?.newHighCritical || 0} tone="danger">
+        <StatCard title="New PR Vulnerabilities" value={data?.new_pr_vulnerabilities || 0} tone="danger">
           <TriangleAlert size={18} aria-hidden="true" />
           High/Critical
         </StatCard>
-        <StatCard title="Clean PRs" value={data?.cleanPrs || 0} tone="success">
+        <StatCard title="Clean PRs" value={data?.clean_prs || 0} tone="success">
           <CircleCheck size={18} aria-hidden="true" />
           Success
         </StatCard>
-        <StatCard title="Failed / Incomplete Scans" value={data?.failedScans || 0} tone="warn">
+        <StatCard title="Failed / Incomplete Scans" value={data?.failed_incomplete_scans || 0} tone="warn">
           <TriangleAlert size={18} aria-hidden="true" />
           Needs Attention
         </StatCard>
@@ -120,7 +128,7 @@ function DashboardView({ data }: { data: DashboardData }) {
             <EmptyState title="No scans in the queue" hint="New pull requests appear here when they are scanned." />
           ) : (
             <ul className="queue">
-              {safeQueue.map((item) => {
+              {safeQueue.map((item: any) => {
                 const bad = item.status === 'failed' || item.status === 'timed_out';
                 return (
                   <li key={item.id} className="queue-row">
@@ -173,10 +181,10 @@ function DashboardView({ data }: { data: DashboardData }) {
                 <div className="bar-track">
                   <div
                     className={`bar-fill bar-${key}`}
-                    style={{ width: `${((safeSeverity[key] || 0) / maxSeverity) * 100}%` }}
+                    style={{ width: `${((safeSeverity[key as keyof typeof safeSeverity] || 0) / maxSeverity) * 100}%` }}
                   />
                 </div>
-                <span className="bar-count">{safeSeverity[key] || 0}</span>
+                <span className="bar-count">{safeSeverity[key as keyof typeof safeSeverity] || 0}</span>
               </li>
             ))}
           </ul>
@@ -184,7 +192,7 @@ function DashboardView({ data }: { data: DashboardData }) {
           <h3 className="sub-title">Recently scanned repositories</h3>
           {safeRecentRepos.length > 0 ? (
             <ul className="repo-scores">
-              {safeRecentRepos.map((repo) => (
+              {safeRecentRepos.map((repo: any) => (
                 <li key={repo.name}>
                   <span>{repo.name}</span>
                   <span className={`badge ${scoreClass(repo.score)}`}>{repo.score.toFixed(1)}</span>
