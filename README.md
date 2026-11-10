@@ -69,3 +69,14 @@ uvicorn main:app –reload
 Once the server is running, you can access:
 •	Interactive API Docs (Swagger UI):  http://localhost:8000/docs
 •	Alternative Docs (Redoc):  http://localhost:8000/redoc
+
+#Secrets & environment:-
+Configuration lives in `services/api/.env`, which is gitignored and never baked into the Docker image. Start from the committed template:
+
+Bash
+cp services/api/.env.example services/api/.env
+
+Then fill in `GITHUB_TOKEN`, `SECRET_KEY` and `GITHUB_WEBHOOK_SECRET`. A pre-commit guard blocks staged `.env` files and credential-shaped strings; enable it once per clone with:
+
+Bash
+git config core.hooksPath .githooks

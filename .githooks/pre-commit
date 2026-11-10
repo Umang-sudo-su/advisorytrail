@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+# Pre-commit secret guard for BuildShield.
+#
+# Blocks commits that stage an environment file or contain something that looks
+# like a live credential (GitHub / GitLab / AWS / Slack / OpenAI-style tokens,
+# private keys, or `some_secret = "…"` style assignments).
+#
+# Matched values are never echoed: the report names the file and line only, so
+# this hook is safe to run in CI logs and terminals that are being recorded.
+#
+# Enable once per clone:  git config core.hooksPath .githooks
+# Emergency bypass:       git commit --no-verify   (only after checking the hit is fake)
+
+set -u
+
+blocked=0
+
+report() {
+  printf 'pre-commit: %s\n' "$1" >&2
+  blocked=1
+}
+
+# Print "path:line" for every hit, with the matched content redacted.
+report_hits() {
+  local hits=$1 line file rest
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    file=${line%%:*}
+    rest=${line#*:}
+    printf '    %s:%s  [value hidden]\n' "$file" "${rest%%:*}" >&2
+  done <<< "$hits"
+}
+
+# 1. Environment files must never be staged (templates are fine).
+while IFS= read -r -d '' path; do
+  base=${path##*/}
+  case "$base" in
+    .env.example|.env.sample|.env.template|.env.dist) continue ;;
+    .env|.env.*|*.env) report "refusing to commit environment file: $path" ;;
+  esac
+done < <(git diff --cached --name-only -z --diff-filter=ACMR)
+
+base_excludes=(
+  ':(exclude)*.lock'
+  ':(exclude)package-lock.json'
+  ':(exclude)*.min.js'
+  ':(exclude)*.map'
+  ':(exclude).githooks/pre-commit'
+)
+
+# 2. Known credential shapes, anywhere in staged content.
+patterns=(
+  'github_pat_[A-Za-z0-9_]{20,}'
+  'gh[pousr]_[A-Za-z0-9]{20,}'
+  'glpat-[A-Za-z0-9_-]{20,}'
+  'AKIA[0-9A-Z]{16}'
+  'ASIA[0-9A-Z]{16}'
+  'xox[baprs]-[A-Za-z0-9-]{10,}'
+  'sk-[A-Za-z0-9_-]{20,}'
+  'AIza[0-9A-Za-z_-]{35}'
+  '-----BEGIN [A-Z ]*PRIVATE KEY-----'
+)
+
+for pattern in "${patterns[@]}"; do
+  if hits=$(git grep --cached -I -n -E -e "$pattern" -- . "${base_excludes[@]}"); then
+    report "possible credential matching /$pattern/:"
+    report_hits "$hits"
+  fi
+done
+
+# 3. Assignments that hand a long literal to a secret-sounding name. Test files
+#    legitimately use fake values, so they are skipped for this heuristic only.
+generic="(secret|token|password|passwd|api[_-]?key|access[_-]?key|client[_-]?secret)[[:space:]]*[:=][[:space:]]*[\"'][^\"'[:space:]]{12,}[\"']"
+generic_excludes=(
+  "${base_excludes[@]}"
+  ':(exclude)tests/**'
+  ':(exclude)**/tests/**'
+  ':(exclude)**/test_*.py'
+  ':(exclude)**/*.test.ts'
+  ':(exclude)**/*.test.tsx'
+  ':(exclude)**/*.spec.ts'
+  ':(exclude)**/*.spec.tsx'
+)
+
+if hits=$(git grep --cached -I -n -i -E -e "$generic" -- . "${generic_excludes[@]}"); then
+  report "possible hardcoded secret:"
+  report_hits "$hits"
+fi
+
+if [ "$blocked" -ne 0 ]; then
+  cat >&2 <<'MSG'
+
+pre-commit: commit blocked.
+Remove the secret, load it from the environment, or use a placeholder.
+If the hit is a verified false positive, re-run with --no-verify.
+MSG
+  exit 1
+fi
+
+exit 0
