@@ -1,0 +1,141 @@
+.audit-page {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.audit-filter {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.audit-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+}
+
+.audit-filter .pills {
+  margin-bottom: 0;
+}
+
+.audit-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.audit-tools .search {
+  min-width: 250px;
+  padding-top: 0.55rem;
+  padding-bottom: 0.55rem;
+  background: var(--surface);
+}
+
+.audit-error {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius-xs);
+  background: var(--bad);
+  color: var(--on-bad);
+  font-size: 0.82rem;
+}
+
+.monitor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.monitor-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.monitor-heading h2 {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.monitor-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.4rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.monitor-stats strong {
+  color: var(--ink);
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+
+.monitor-stats .badge {
+  font-size: 0.78rem;
+  vertical-align: middle;
+}
+
+.audit-table td {
+  vertical-align: top;
+  white-space: normal;
+}
+
+.audit-table .audit-time {
+  color: var(--muted);
+  font-family: ui-monospace, 'JetBrains Mono', Consolas, monospace;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.audit-table .audit-actor {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.audit-table .audit-action {
+  white-space: nowrap;
+}
+
+.audit-table .audit-resource {
+  font-family: ui-monospace, 'JetBrains Mono', Consolas, monospace;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.audit-table .audit-justification {
+  min-width: 190px;
+  color: var(--muted);
+}
+
+.audit-note {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+@media (max-width: 720px) {
+  .audit-filter-row,
+  .audit-tools {
+    align-items: stretch;
+  }
+
+  .audit-tools,
+  .audit-tools .search {
+    width: 100%;
+  }
+}

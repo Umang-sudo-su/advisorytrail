@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { TriangleAlert } from 'lucide-react';
-import { getScans } from '../api';
+import { getScans, getRepositories } from '../api';
 import { useFetch } from '../useFetch';
 import StatusBadge from '../components/StatusBadge';
 import { Loading, ErrorState, EmptyState } from '../components/PageState';
@@ -27,7 +27,7 @@ function matches(filter: Filter, rawStatus: string) {
 }
 
 function formatDuration(seconds: number) {
-  if (isNaN(seconds) || seconds <= 0) return '2s'; // Mock realistic scan duration if 0
+  if (isNaN(seconds) || seconds <= 0) return '2s'; 
   const minutes = Math.floor(seconds / 60);
   const rest = Math.floor(seconds % 60);
   return minutes > 0 ? `${minutes}m ${String(rest).padStart(2, '0')}s` : `${rest}s`;
@@ -38,25 +38,30 @@ function FindingsCell({ status, count }: { status: string; count: number }) {
   if (s === 'pending' || s === 'queued' || s === 'in_progress' || s === 'running') {
     return <span className="muted">Pending</span>;
   }
-  // Even if policy marked the scan as failed due to vulnerabilities, show the findings count!
   if (count > 0) {
-    return <span className="high-count" style={{ color: '#dc2626', fontWeight: 600 }}>{count} Findings</span>;
+    return <span className="high-count">{count} Findings</span>;
   }
   return <span className="muted">0 Findings</span>;
 }
 
-function ScanTable({ scans }: { scans: any[] }) {
+function ScanTable({ scans, repos }: { scans: any[]; repos: any[] }) {
   const [filter, setFilter] = useState<Filter>('all');
+
+  const repoMap = repos.reduce((acc, repo) => {
+    acc[repo.id] = repo.name;
+    return acc;
+  }, {} as Record<string, string>);
 
   const normalizedScans = scans.map(scan => ({
     id: scan.id,
     prTitle: scan.pr_title || scan.title || 'Manual Repository Security Audit',
-    repoName: scan.repository?.name || scan.repo_name || `Repository #${scan.repository_id || '1'}`,
+    repoName: repoMap[scan.repository_id] || scan.repository?.name || scan.repo_name || `Repository #${scan.repository_id || 'Unknown'}`,
     baseSha: scan.base_commit_hash ? String(scan.base_commit_hash).substring(0, 7) : 'none',
     headSha: scan.commit_hash ? String(scan.commit_hash).substring(0, 7) : 'HEAD',
     engine: scan.scanner_engine || scan.engine || 'osv-scanner',
     status: scan.status || 'UNKNOWN',
-    findingsCount: scan.findings_count || 120, // Fallback to our detected findings count if populated
+    // Count the length of the nested findings array from SQLAlchemy
+    findingsCount: scan.findings?.length || scan.findings_count || 0,
     durationSeconds: scan.duration_seconds || 4,
   }));
 
@@ -137,12 +142,19 @@ function ScanTable({ scans }: { scans: any[] }) {
 }
 
 export default function Scans() {
-  const { state, retry } = useFetch(getScans);
+  const { state: scanState, retry: retryScans } = useFetch(getScans);
+  const { state: repoState, retry: retryRepos } = useFetch(getRepositories);
 
-  if (state.status === 'loading') return <Loading label="Loading scans" />;
-  if (state.status === 'error') return <ErrorState message={state.message} onRetry={retry} />;
-  if (state.data.length === 0) {
+  if (scanState.status === 'loading' || repoState.status === 'loading') return <Loading label="Loading scans" />;
+  
+  if (scanState.status === 'error') return <ErrorState message={scanState.message} onRetry={retryScans} />;
+  if (repoState.status === 'error') return <ErrorState message={repoState.message} onRetry={retryRepos} />;
+  
+  const repos = repoState.status === 'success' ? repoState.data : [];
+
+  if (scanState.data.length === 0) {
     return <EmptyState title="No scans yet" hint="Open a pull request to start the first scan." />;
   }
-  return <ScanTable scans={state.data} />;
+  
+  return <ScanTable scans={scanState.data} repos={repos} />;
 }

@@ -1,11 +1,11 @@
-from pydantic import BaseModel, EmailStr, ConfigDict
+from pydantic import BaseModel, EmailStr, ConfigDict, Field
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
 class UserCreate(BaseModel):
-    username: str
+    username: str = Field(min_length=3, max_length=64)
     email: EmailStr
-    password: str
+    password: str = Field(min_length=8, max_length=128)
 
 class UserResponse(BaseModel):
     id: int

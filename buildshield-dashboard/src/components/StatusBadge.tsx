@@ -16,9 +16,5 @@ export default function StatusBadge({ status }: { status?: string }) {
 
   const config = statusMap[safeStatus] || { label: status || 'Unknown', className: 'badge-muted' };
 
-  return (
-    <span className={`badge ${config.className}`}>
-      {config.label}
-    </span>
-  );
+  return <span className={`badge ${config.className}`}>{config.label}</span>;
 }

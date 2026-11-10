@@ -1,44 +1,150 @@
-import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
-import Layout from './components/Layout';
-import Placeholder from './pages/Placeholder';
+import { useEffect, useState } from 'react';
+import { AuthProvider, useAuth } from './AuthContext';
+import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Repositories from './pages/Repositories';
 import Scans from './pages/Scans';
 import Findings from './pages/Findings';
 import Policies from './pages/Policies';
-import Login from './pages/Login';
+import AuditLogs from './pages/AuditLogs';
+import Settings from './pages/Settings';
+import {
+  LayoutDashboard,
+  GitBranch,
+  ShieldAlert,
+  FileText,
+  ShieldCheck,
+  Settings as SettingsIcon,
+  History,
+  LogOut,
+  LoaderCircle,
+} from 'lucide-react';
+import { applyTheme, loadSettings, watchSystemTheme } from './settings';
 
-// This wrapper checks for a token before rendering any child routes
-function ProtectedRoute() {
-  const token = localStorage.getItem('buildshield_token');
-  
-  if (!token) {
-    // No token found? Send them directly to the login page
-    return <Navigate to="/login" replace />;
+const tabs = [
+  { key: 'dashboard', label: 'Dashboard', hint: 'Overview & live queue', icon: LayoutDashboard },
+  { key: 'repositories', label: 'Repositories', hint: 'Connected GitHub repositories', icon: GitBranch },
+  { key: 'scans', label: 'Scans', hint: 'Scan lifecycle & history', icon: ShieldAlert },
+  { key: 'findings', label: 'Findings', hint: 'Vulnerabilities & evidence', icon: FileText },
+  { key: 'policies', label: 'Policies', hint: 'Risk rules & check preview', icon: ShieldCheck },
+  { key: 'audit', label: 'Audit Logs', hint: 'Activity & webhook history', icon: History },
+  { key: 'settings', label: 'Settings', hint: 'Preferences & connection', icon: SettingsIcon },
+] as const;
+
+type TabKey = (typeof tabs)[number]['key'];
+
+function AppContent() {
+  const { token, user, initializing, logout } = useAuth();
+  const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
+
+  // Apply the saved palette for logged-out and logged-in states alike.
+  useEffect(() => {
+    const mode = loadSettings().theme;
+    applyTheme(mode);
+    return watchSystemTheme(mode);
+  }, []);
+
+  if (initializing) {
+    return (
+      <div className="boot-screen">
+        <div>
+          <LoaderCircle size={22} className="spin" aria-hidden="true" />
+          Restoring your session…
+        </div>
+      </div>
+    );
   }
-  
-  // Token exists? Let them through to the layout and pages
-  return <Outlet />;
+
+  if (!token) {
+    return <Login />;
+  }
+
+  const active = tabs.find((tab) => tab.key === activeTab) ?? tabs[0];
+  const initials = (user?.username || user?.email || 'B').slice(0, 1).toUpperCase();
+  const isSettings = activeTab === 'settings';
+
+  return (
+    <div className="app">
+      <aside className="sidebar">
+        <div className="brand">
+          <img src="/assets/logo-mark.svg" alt="" className="brand-mark" />
+          <span className="brand-name">BuildShield</span>
+        </div>
+
+        <nav className="sidebar-nav" aria-label="Main">
+          {tabs
+            .filter((tab) => tab.key !== 'settings')
+            .map(({ key, label, icon: Icon }) => (
+              <button
+                key={key}
+                type="button"
+                className="nav-link"
+                aria-current={activeTab === key ? 'page' : undefined}
+                onClick={() => setActiveTab(key)}
+              >
+                <span className="nav-icon">
+                  <Icon size={19} aria-hidden="true" />
+                </span>
+                <span>{label}</span>
+              </button>
+            ))}
+        </nav>
+
+        <div className="sidebar-footer">
+          <button
+            type="button"
+            className="nav-link settings-trigger"
+            aria-current={isSettings ? 'page' : undefined}
+            onClick={() => setActiveTab('settings')}
+          >
+            <span className="nav-icon">
+              <SettingsIcon size={19} aria-hidden="true" />
+            </span>
+            <span>Settings</span>
+          </button>
+
+          <div className="user-chip">
+            <span className="avatar" aria-hidden="true">{initials}</span>
+            <span className="user-meta">
+              <strong>{user?.username ?? 'Signed in'}</strong>
+              <small>{user?.email ?? 'BuildShield session'}</small>
+            </span>
+          </div>
+
+          <button type="button" className="logout-btn" onClick={logout}>
+            <LogOut size={17} aria-hidden="true" />
+            <span>Sign out</span>
+          </button>
+        </div>
+      </aside>
+
+      <div className="main">
+        <header className="topbar">
+          <div>
+            <p className="topbar-eyebrow">{active.hint}</p>
+            <h1>{active.label}</h1>
+          </div>
+          <span className="topbar-chip">osv-scanner engine</span>
+        </header>
+
+        <main className="content">
+          {activeTab === 'dashboard' && <Dashboard />}
+          {activeTab === 'repositories' && <Repositories />}
+          {activeTab === 'scans' && <Scans />}
+          {activeTab === 'findings' && <Findings />}
+          {activeTab === 'policies' && <Policies />}
+          {activeTab === 'audit' && <AuditLogs />}
+          {activeTab === 'settings' && <Settings />}
+        </main>
+      </div>
+    </div>
+  );
 }
 
 export default function App() {
   return (
-    <Routes>
-      {/* Public Routes (No token required) */}
-      <Route path="/login" element={<Login />} />
-
-      {/* Protected Routes (Require a valid token) */}
-      <Route element={<ProtectedRoute />}>
-        <Route element={<Layout />}>
-          <Route index element={<Navigate to="/dashboard" replace />} />
-          <Route path="/dashboard"    element={<Dashboard />} />
-          <Route path="/repositories" element={<Repositories />} />
-          <Route path="/scans"        element={<Scans />} />
-          <Route path="/findings"     element={<Findings />} />
-          <Route path="/policies"     element={<Policies />} />
-          <Route path="/audit-logs"   element={<Placeholder name="Audit Logs" />} />
-        </Route>
-      </Route>
-    </Routes>
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }

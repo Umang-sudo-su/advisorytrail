@@ -35,7 +35,7 @@ function RepoList({ repos, query, onScan }: { repos: Repository[]; query: string
 
           <div className="card-row">
             <span className="chip">
-              <GitBranch size={16} aria-hidden="true" />
+              <GitBranch size={15} aria-hidden="true" />
               {repo.branch || 'main'}
             </span>
             <div>
@@ -59,13 +59,8 @@ function RepoList({ repos, query, onScan }: { repos: Repository[]; query: string
               <p className="label">Latest scan</p>
               <StatusBadge status={repo.latestScanStatus || 'unknown'} />
             </div>
-            <button 
-              type="button" 
-              className="btn btn-primary" 
-              style={{ backgroundColor: '#2563eb', color: 'white', border: 'none' }}
-              onClick={() => onScan(repo.id)}
-            >
-              <Play size={16} aria-hidden="true" />
+            <button type="button" className="scan-btn" onClick={() => onScan(repo.id)}>
+              <Play size={15} aria-hidden="true" />
               Trigger Local Scan
             </button>
           </div>
@@ -78,7 +73,7 @@ function RepoList({ repos, query, onScan }: { repos: Repository[]; query: string
 export default function Repositories() {
   const { state, retry } = useFetch(getRepositories);
   const [query, setQuery] = useState('');
-  
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newRepo, setNewRepo] = useState({ name: '', url: '', branch: 'main' });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -92,7 +87,7 @@ export default function Repositories() {
       await addRepository(newRepo);
       setIsModalOpen(false);
       setNewRepo({ name: '', url: '', branch: 'main' });
-      retry(); 
+      retry();
     } catch (err: any) {
       setSubmitError(err.message || 'Failed to add repository');
     } finally {
@@ -104,9 +99,8 @@ export default function Repositories() {
     try {
       await triggerScan(repoId);
       alert('Scan triggered successfully!');
-      retry(); // Refresh the data to show updated scan status
+      retry();
     } catch (err: any) {
-      // If the schema expected a different payload field, we will see it here
       alert(`Failed to trigger scan: ${err.message}`);
     }
   };
@@ -125,7 +119,7 @@ export default function Repositories() {
           />
         </label>
         <button type="button" className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
-          <Plus size={18} aria-hidden="true" />
+          <Plus size={17} aria-hidden="true" />
           Connect GitHub Repository
         </button>
       </div>
@@ -135,64 +129,68 @@ export default function Repositories() {
       {state.status === 'success' && <RepoList repos={state.data} query={query} onScan={handleTriggerScan} />}
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-md border border-gray-700">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-white m-0">Connect Repository</h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-white bg-transparent border-none cursor-pointer">
-                <X size={20} />
+        <div className="modal-backdrop">
+          <div className="modal" role="dialog" aria-modal="true" aria-labelledby="connect-repo-title">
+            <div className="modal-head">
+              <h2 id="connect-repo-title">Connect Repository</h2>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setIsModalOpen(false)}
+                aria-label="Close dialog"
+              >
+                <X size={18} aria-hidden="true" />
               </button>
             </div>
-            
-            {submitError && <div className="bg-red-500/20 text-red-400 p-3 rounded mb-4 text-sm">{submitError}</div>}
-            
-            <form onSubmit={handleAddRepo} className="flex flex-col gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1 text-gray-300">Repository Name</label>
-                <input 
-                  type="text" 
+
+            {submitError && (
+              <div className="modal-error" role="alert">
+                {submitError}
+              </div>
+            )}
+
+            <form onSubmit={handleAddRepo} className="modal-form">
+              <div className="form-field">
+                <label className="form-label" htmlFor="repo-name">Repository Name</label>
+                <input
+                  id="repo-name"
+                  className="form-input"
+                  type="text"
                   value={newRepo.name}
-                  onChange={(e) => setNewRepo({...newRepo, name: e.target.value})}
-                  className="w-full p-2 rounded bg-gray-900 border border-gray-600 focus:border-blue-500 outline-none text-white"
+                  onChange={(e) => setNewRepo({ ...newRepo, name: e.target.value })}
                   placeholder="e.g. buildshield-api"
-                  required 
+                  required
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1 text-gray-300">GitHub URL</label>
-                <input 
-                  type="url" 
+              <div className="form-field">
+                <label className="form-label" htmlFor="repo-url">GitHub URL</label>
+                <input
+                  id="repo-url"
+                  className="form-input"
+                  type="url"
                   value={newRepo.url}
-                  onChange={(e) => setNewRepo({...newRepo, url: e.target.value})}
-                  className="w-full p-2 rounded bg-gray-900 border border-gray-600 focus:border-blue-500 outline-none text-white"
+                  onChange={(e) => setNewRepo({ ...newRepo, url: e.target.value })}
                   placeholder="https://github.com/user/repo"
-                  required 
+                  required
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1 text-gray-300">Branch</label>
-                <input 
-                  type="text" 
+              <div className="form-field">
+                <label className="form-label" htmlFor="repo-branch">Branch</label>
+                <input
+                  id="repo-branch"
+                  className="form-input"
+                  type="text"
                   value={newRepo.branch}
-                  onChange={(e) => setNewRepo({...newRepo, branch: e.target.value})}
-                  className="w-full p-2 rounded bg-gray-900 border border-gray-600 focus:border-blue-500 outline-none text-white"
+                  onChange={(e) => setNewRepo({ ...newRepo, branch: e.target.value })}
                   placeholder="main"
-                  required 
+                  required
                 />
               </div>
-              <div className="flex justify-end gap-3 mt-4">
-                <button 
-                  type="button" 
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded bg-transparent border border-gray-600 text-white hover:bg-gray-700"
-                >
+              <div className="modal-actions">
+                <button type="button" className="btn btn-ghost" onClick={() => setIsModalOpen(false)}>
                   Cancel
                 </button>
-                <button 
-                  type="submit" 
-                  disabled={isSubmitting}
-                  className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white font-bold disabled:opacity-50"
-                >
+                <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
                   {isSubmitting ? 'Connecting...' : 'Connect'}
                 </button>
               </div>

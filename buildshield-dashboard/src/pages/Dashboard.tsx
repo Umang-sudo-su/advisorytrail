@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { LoaderCircle, TriangleAlert, CircleCheck, GitPullRequest } from 'lucide-react';
 import { getDashboard } from '../api';
 import { useFetch } from '../useFetch';
-import type { DashboardData, Severity, TrendPoint } from '../types';
+import type { Severity, TrendPoint } from '../types';
 import StatusBadge from '../components/StatusBadge';
 import { Loading, ErrorState, EmptyState } from '../components/PageState';
 
@@ -23,16 +23,21 @@ function StatCard({
   title,
   value,
   tone,
+  icon,
   children,
 }: {
   title: string;
   value: number;
   tone: 'plain' | 'danger' | 'success' | 'warn';
+  icon: ReactNode;
   children: ReactNode;
 }) {
   return (
     <div className={`stat stat-${tone}`}>
-      <p className="stat-title">{title}</p>
+      <div className="stat-head">
+        <p className="stat-title">{title}</p>
+        <span className="stat-icon" aria-hidden="true">{icon}</span>
+      </div>
       <p className="stat-value">{value}</p>
       <div className="stat-note">{children}</div>
     </div>
@@ -40,9 +45,9 @@ function StatCard({
 }
 
 function TrendChart({ points }: { points: TrendPoint[] }) {
-  const width = 400;
-  const height = 170;
-  const pad = 28;
+  const width = 420;
+  const height = 180;
+  const pad = 30;
 
   const scores = points.map((p) => p.score);
   const min = Math.min(...scores) - 5;
@@ -55,6 +60,8 @@ function TrendChart({ points }: { points: TrendPoint[] }) {
     ...p,
   }));
 
+  const line = coords.map((c) => `${c.x},${c.y}`).join(' ');
+  const area = `${pad},${height - pad} ${line} ${coords[coords.length - 1].x},${height - pad}`;
   const summary = points.map((p) => `${p.month} ${p.score}`).join(', ');
 
   return (
@@ -64,16 +71,42 @@ function TrendChart({ points }: { points: TrendPoint[] }) {
       role="img"
       aria-label={`Repository health score by month: ${summary}`}
     >
+      <defs>
+        <linearGradient id="trend-fill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#0f4b52" stopOpacity="0.18" />
+          <stop offset="100%" stopColor="#0f4b52" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+
+      {[0, 1, 2].map((i) => {
+        const y = pad + (i * (height - pad * 2)) / 2;
+        return (
+          <line
+            key={i}
+            x1={pad}
+            x2={width - pad}
+            y1={y}
+            y2={y}
+            stroke="var(--outline)"
+            strokeDasharray="4 6"
+          />
+        );
+      })}
+
+      <polygon points={area} fill="url(#trend-fill)" />
       <polyline
-        points={coords.map((c) => `${c.x},${c.y}`).join(' ')}
+        points={line}
         fill="none"
         stroke="var(--primary)"
         strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
+
       {coords.map((c) => (
         <g key={c.month}>
-          <circle cx={c.x} cy={c.y} r="5" fill="var(--primary)" />
-          <text x={c.x} y={height - 6} textAnchor="middle" fontSize="13" fill="var(--muted)">
+          <circle cx={c.x} cy={c.y} r="5" fill="var(--surface-container-lowest)" stroke="var(--primary)" strokeWidth="3" />
+          <text x={c.x} y={height - 6} textAnchor="middle" fontSize="12" fill="var(--muted)">
             {c.month}
           </text>
         </g>
@@ -85,13 +118,13 @@ function TrendChart({ points }: { points: TrendPoint[] }) {
 function DashboardView({ data }: { data: any }) {
   // Map backend uppercase/snake_case JSON structure to frontend format
   const rawSeverity = data?.severity_breakdown || {};
-  const safeSeverity = { 
-    critical: rawSeverity.CRITICAL || 0, 
-    high: rawSeverity.HIGH || 0, 
-    medium: rawSeverity.MEDIUM || 0, 
-    low: rawSeverity.LOW || 0 
+  const safeSeverity = {
+    critical: rawSeverity.CRITICAL || 0,
+    high: rawSeverity.HIGH || 0,
+    medium: rawSeverity.MEDIUM || 0,
+    low: rawSeverity.LOW || 0
   };
-  
+
   const safeQueue = data?.queue || [];
   const safeHealthTrend = data?.healthTrend || [];
   const safeRecentRepos = data?.recentRepos || [];
@@ -101,20 +134,36 @@ function DashboardView({ data }: { data: any }) {
   return (
     <>
       <section className="stat-grid" aria-label="Scan summary">
-        <StatCard title="Active PR Scans" value={data?.active_pr_scans || 0} tone="plain">
-          <LoaderCircle size={18} className="spin" aria-hidden="true" />
+        <StatCard
+          title="Active PR Scans"
+          value={data?.active_pr_scans || 0}
+          tone="plain"
+          icon={<LoaderCircle size={17} className="spin" />}
+        >
           Running
         </StatCard>
-        <StatCard title="New PR Vulnerabilities" value={data?.new_pr_vulnerabilities || 0} tone="danger">
-          <TriangleAlert size={18} aria-hidden="true" />
+        <StatCard
+          title="New PR Vulnerabilities"
+          value={data?.new_pr_vulnerabilities || 0}
+          tone="danger"
+          icon={<TriangleAlert size={17} />}
+        >
           High/Critical
         </StatCard>
-        <StatCard title="Clean PRs" value={data?.clean_prs || 0} tone="success">
-          <CircleCheck size={18} aria-hidden="true" />
+        <StatCard
+          title="Clean PRs"
+          value={data?.clean_prs || 0}
+          tone="success"
+          icon={<CircleCheck size={17} />}
+        >
           Success
         </StatCard>
-        <StatCard title="Failed / Incomplete Scans" value={data?.failed_incomplete_scans || 0} tone="warn">
-          <TriangleAlert size={18} aria-hidden="true" />
+        <StatCard
+          title="Failed / Incomplete Scans"
+          value={data?.failed_incomplete_scans || 0}
+          tone="warn"
+          icon={<TriangleAlert size={17} />}
+        >
           Needs Attention
         </StatCard>
       </section>
@@ -132,7 +181,9 @@ function DashboardView({ data }: { data: any }) {
                 const bad = item.status === 'failed' || item.status === 'timed_out';
                 return (
                   <li key={item.id} className="queue-row">
-                    <GitPullRequest size={20} aria-hidden="true" />
+                    <span className="queue-icon" aria-hidden="true">
+                      <GitPullRequest size={17} />
+                    </span>
                     <div className="queue-title">
                       <strong>
                         PR #{item.prNumber}: {item.title}
@@ -170,7 +221,7 @@ function DashboardView({ data }: { data: any }) {
           {safeHealthTrend.length > 0 ? (
             <TrendChart points={safeHealthTrend} />
           ) : (
-             <p className="muted" style={{fontSize: '13px'}}>Not enough data yet.</p>
+            <p className="muted small">Not enough data yet.</p>
           )}
 
           <h3 className="sub-title">Severity breakdown</h3>
@@ -200,7 +251,7 @@ function DashboardView({ data }: { data: any }) {
               ))}
             </ul>
           ) : (
-            <p className="muted" style={{fontSize: '13px'}}>No repositories scanned yet.</p>
+            <p className="muted small">No repositories scanned yet.</p>
           )}
         </section>
       </div>

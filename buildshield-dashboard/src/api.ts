@@ -1,31 +1,7 @@
 import type { Repository, Scan, Finding, DashboardData, PolicyData } from './types';
+import { getApiBase, getDefaultCommitRef } from './settings';
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-const repositories: Repository[] = [
-  { id: 'r1', name: 'acme/payment-service', branch: 'main', manifests: ['requirements.txt', 'poetry.lock'], latestScanStatus: 'succeeded' },
-  { id: 'r2', name: 'acme/web-dashboard',   branch: 'main', manifests: ['package-lock.json', 'yarn.lock'],   latestScanStatus: 'succeeded' },
-  { id: 'r3', name: 'acme/auth-worker',     branch: 'main', manifests: ['requirements.txt', 'pipfile'],      latestScanStatus: 'timed_out' },
-  { id: 'r4', name: 'acme/data-ingestor',   branch: 'main', manifests: ['poetry.lock', 'pyproject.toml'],    latestScanStatus: 'partial' },
-];
-
-const scans: Scan[] = [
-  { id: '#1042', repoName: 'github.com/org/repo-a', prTitle: 'PR #142: Bump cryptography', baseSha: 'a1b2c3d', headSha: 'f9e8d7c', engine: 'osv-scanner v1.9.0', status: 'succeeded', highCount: 2, durationSeconds: 72 },
-  { id: '#1041', repoName: 'github.com/org/repo-a', prTitle: 'PR #142: Bump cryptography', baseSha: 'e5f6g7h', headSha: 'i9j8k7l', engine: 'osv-scanner v1.9.0', status: 'running',   highCount: 0, durationSeconds: 45 },
-  { id: '#1040', repoName: 'github.com/org/repo-b', prTitle: 'PR #89: Update PyJWT',       baseSha: 'e5f6g7h', headSha: 'i9j8k7l', engine: 'osv-scanner v1.9.0', status: 'timed_out', highCount: 0, durationSeconds: 303 },
-  { id: '#1039', repoName: 'github.com/org/repo-b', prTitle: 'PR #89: Update PyJWT',       baseSha: 'e5f6g7h', headSha: 'i9j8k7l', engine: 'osv-scanner v1.9.0', status: 'partial',   highCount: 2, durationSeconds: 12 },
-  { id: '#1038', repoName: 'github.com/org/repo-a', prTitle: 'PR #142: Bump cryptography', baseSha: 'a1b2c3d', headSha: 'f9e8d7c', engine: 'osv-scanner v1.9.0', status: 'succeeded', highCount: 0, durationSeconds: 12 },
-];
-
-const findings: Finding[] = [
-  { id: 'f1', packageName: 'urllib3', currentVersion: '1.26.4', fixedVersion: '1.26.19', severity: 'high', change: 'new', reviewStatus: 'open', advisoryId: 'GHSA-34jh-p97f-mpxf', filePath: 'services/api/requirements.txt', priorityReason: 'High-severity advisory introduced in head commit; fixed version 1.26.19 available', scanner: 'osv-scanner', fingerprint: 'sha256:8f9d2a41c7' },
-  { id: 'f2', packageName: 'pyjwt', currentVersion: '2.3.0', fixedVersion: '2.4.0', severity: 'high', change: 'new', reviewStatus: 'open', advisoryId: 'GHSA-ffqj-6fqr-9h24', filePath: 'services/auth/requirements.txt', priorityReason: 'High-severity advisory introduced in head commit; fixed version 2.4.0 available', scanner: 'osv-scanner', fingerprint: 'sha256:3c71be90d2' },
-  { id: 'f3', packageName: 'requests', currentVersion: '2.25.0', fixedVersion: '2.31.0', severity: 'medium', change: 'existing', reviewStatus: 'open', advisoryId: 'GHSA-sample-0001', filePath: 'services/api/requirements.txt', priorityReason: 'Medium-severity advisory already present in the base branch; warn only', scanner: 'osv-scanner', fingerprint: 'sha256:a10b55e6f3' },
-  { id: 'f4', packageName: 'django', currentVersion: '3.2.0', fixedVersion: '3.2.25', severity: 'critical', change: 'existing', reviewStatus: 'open', advisoryId: 'GHSA-sample-0002', filePath: 'services/web/requirements.txt', priorityReason: 'Critical advisory already present in the base branch; fixed version 3.2.25 available', scanner: 'osv-scanner', fingerprint: 'sha256:5d2e88a1b9' },
-  { id: 'f5', packageName: 'jinja2', currentVersion: '2.11.0', fixedVersion: '3.1.3', severity: 'medium', change: 'existing', reviewStatus: 'dismissed', advisoryId: 'GHSA-sample-0003', filePath: 'services/web/requirements.txt', priorityReason: 'Medium-severity advisory already present in the base branch; warn only', scanner: 'osv-scanner', fingerprint: 'sha256:e7940c2d18' },
-  { id: 'f6', packageName: 'pyyaml', currentVersion: '5.3', fixedVersion: null, severity: 'low', change: 'existing', reviewStatus: 'open', advisoryId: 'GHSA-sample-0004', filePath: 'services/worker/requirements.txt', priorityReason: 'Low-severity advisory already present in the base branch; no fixed version yet', scanner: 'osv-scanner', fingerprint: 'sha256:0b6a3f77c4' },
-  { id: 'f7', packageName: 'flask', currentVersion: '1.0.0', fixedVersion: '2.2.5', severity: 'high', change: 'resolved', reviewStatus: 'open', advisoryId: 'GHSA-sample-0005', filePath: 'services/api/requirements.txt', priorityReason: 'High-severity advisory fixed by this pull request', scanner: 'osv-scanner', fingerprint: 'sha256:92c4d5e1a0' },
-];
 
 export async function getRepositories(): Promise<Repository[]> {
   return await fetchFromAPI('/api/v1/repositories/');
@@ -36,35 +12,6 @@ export async function getScans(): Promise<Scan[]> {
 export async function getFindings(): Promise<Finding[]> {
   return await fetchFromAPI('/api/v1/findings/');
 }
-
-const dashboard: DashboardData = {
-  activeScans: 4,
-  newHighCritical: 7,
-  cleanPrs: 142,
-  failedScans: 2,
-  queue: [
-    { id: 'q1', prNumber: 142, title: 'Bump cryptography', repoName: 'acme/payment-service', sha: 'sha-a9b1c', status: 'running', progress: 20 },
-    { id: 'q2', prNumber: 89, title: 'Update PyJWT', repoName: 'acme/auth-service', sha: 'sha-a9b1c', status: 'running', progress: 35 },
-    { id: 'q3', prNumber: 204, title: 'Upgrade urllib3', repoName: 'acme/web-client', sha: 'sha-a9b1c', status: 'succeeded', progress: 100 },
-    { id: 'q4', prNumber: 12, title: 'Fix dependencies', repoName: 'acme/payment-service', sha: 'sha-a9b1c', status: 'timed_out', progress: 62 },
-    { id: 'q5', prNumber: 54, title: 'Update Django', repoName: 'acme/web-client', sha: 'sha-a9b1c', status: 'succeeded', progress: 100 },
-    { id: 'q6', prNumber: 33, title: 'Add validation', repoName: 'acme/auth-service', sha: 'sha-a9b1c', status: 'succeeded', progress: 100 },
-  ],
-  healthTrend: [
-    { month: 'Jan', score: 82 },
-    { month: 'Feb', score: 79 },
-    { month: 'Mar', score: 85 },
-    { month: 'Apr', score: 83 },
-    { month: 'May', score: 88 },
-  ],
-  severity: { critical: 1, high: 6, medium: 9, low: 4 },
-  recentRepos: [
-    { name: 'acme/payment-service', score: 75 },
-    { name: 'acme/auth-service', score: 96 },
-    { name: 'acme/web-client', score: 85.5 },
-    { name: 'acme/data-ingestor', score: 93 },
-  ],
-};
 
 export async function getDashboard(): Promise<DashboardData> {
   // Your backend calls this 'stats' instead of 'dashboard'
@@ -85,14 +32,51 @@ export async function getPolicies(): Promise<PolicyData> {
   return policies;
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+export const TOKEN_KEY = 'buildshield_token';
+export const UNAUTHORIZED_EVENT = 'buildshield:unauthorized';
+
+/**
+ * Session tokens live in sessionStorage, so signing in once lasts for the whole
+ * browser session. "Keep me signed in" upgrades the token to localStorage.
+ */
+export function getStoredToken(): string | null {
+    return sessionStorage.getItem(TOKEN_KEY) ?? localStorage.getItem(TOKEN_KEY);
+}
+
+export function storeToken(token: string, remember = false) {
+    clearStoredToken();
+    const storage = remember ? localStorage : sessionStorage;
+    storage.setItem(TOKEN_KEY, token);
+}
+
+export function clearStoredToken() {
+    sessionStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(TOKEN_KEY);
+}
+
+async function readErrorMessage(response: Response): Promise<string> {
+    try {
+        const data = await response.json();
+        if (typeof data?.detail === 'string') return data.detail;
+        if (Array.isArray(data?.detail)) {
+            const messages = data.detail
+                .map((item: { msg?: string }) => item?.msg)
+                .filter(Boolean);
+            if (messages.length > 0) return messages.join(', ');
+        }
+    } catch {
+        // Response body was not JSON; fall through to the generic message.
+    }
+    return `Request failed (${response.status})`;
+}
 
 export async function fetchFromAPI(endpoint: string, options: RequestInit = {}) {
+    const base = getApiBase();
     const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-    const url = `${API_BASE}${path}`;
-    
-    const token = localStorage.getItem('buildshield_token');
-    
+    const url = `${base}${path}`;
+
+    const token = getStoredToken();
+
     // Set up headers, merging any custom headers passed in
     const headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -104,56 +88,80 @@ export async function fetchFromAPI(endpoint: string, options: RequestInit = {}) 
         headers['Authorization'] = `Bearer ${token}`;
     }
 
+    let response: Response;
     try {
-        const response = await fetch(url, {
+        response = await fetch(url, {
             ...options,
             headers,
         });
-
-        if (response.status === 401) {
-            // Token expired or invalid
-            localStorage.removeItem('buildshield_token');
-            window.location.href = '/login'; 
-            throw new Error('Unauthorized');
-        }
-
-        if (!response.ok) {
-            throw new Error(`API error: ${response.status}`);
-        }
-
-        return await response.json();
-    } catch (error) {
-        console.error("Failed to fetch from API:", error);
-        throw error;
+    } catch {
+        throw new Error(`Cannot reach the BuildShield API at ${base}. Check that the backend is running.`);
     }
-}
 
-export async function loginUser(email: string, password: string) {
-    const formData = new URLSearchParams();
-    formData.append('username', email); // FastAPI OAuth2 expects the key to be 'username'
-    formData.append('password', password);
-
-    const response = await fetch(`${API_BASE}/login`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: formData,
-    });
+    if (response.status === 401) {
+        // Token expired or invalid: drop it and let AuthContext show the login page again.
+        clearStoredToken();
+        window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+        throw new Error('Unauthorized');
+    }
 
     if (!response.ok) {
-        throw new Error('Invalid credentials');
+        throw new Error(await readErrorMessage(response));
     }
 
-    const data = await response.json();
-    // Save the access token to the browser
-    localStorage.setItem('buildshield_token', data.access_token);
-    return data;
+    if (response.status === 204) return null;
+    return await response.json();
 }
 
-export function logoutUser() {
-    localStorage.removeItem('buildshield_token');
-    window.location.href = '/login';
+export interface AuthUser {
+    id: number;
+    username: string;
+    email: string;
+    is_active: boolean;
+}
+
+async function postAuthRequest(path: string, body: BodyInit, contentType: string): Promise<Response> {
+    const base = getApiBase();
+    let response: Response;
+    try {
+        response = await fetch(`${base}${path}`, {
+            method: 'POST',
+            headers: { 'Content-Type': contentType },
+            body,
+        });
+    } catch {
+        throw new Error(`Cannot reach the BuildShield API at ${base}. Check that the backend is running.`);
+    }
+
+    if (!response.ok) {
+        throw new Error(await readErrorMessage(response));
+    }
+
+    return response;
+}
+
+export async function loginUser(identifier: string, password: string): Promise<string> {
+    const formData = new URLSearchParams();
+    formData.append('username', identifier); // FastAPI OAuth2 form field (username or email)
+    formData.append('password', password);
+
+    const response = await postAuthRequest('/api/v1/auth/login', formData, 'application/x-www-form-urlencoded');
+    const data = await response.json();
+
+    if (!data?.access_token) {
+        throw new Error('The API did not return an access token.');
+    }
+
+    return data.access_token as string;
+}
+
+export async function registerUser(payload: { username: string; email: string; password: string }): Promise<AuthUser> {
+    const response = await postAuthRequest('/api/v1/auth/register', JSON.stringify(payload), 'application/json');
+    return await response.json();
+}
+
+export async function getCurrentUser(): Promise<AuthUser> {
+    return await fetchFromAPI('/api/v1/auth/me');
 }
 
 export async function addRepository(data: { name: string; url: string; branch: string }) {
@@ -163,12 +171,98 @@ export async function addRepository(data: { name: string; url: string; branch: s
     });
 }
 
-export async function triggerScan(repositoryId: string | number) {
+export async function triggerScan(repositoryId: string | number, commitRef: string = getDefaultCommitRef()) {
     return await fetchFromAPI('/api/v1/scans/', {
         method: 'POST',
-        body: JSON.stringify({ 
+        body: JSON.stringify({
             repository_id: repositoryId,
-            commit_hash: "HEAD" 
+            commit_hash: commitRef,
         }),
     });
+}
+
+export interface AuditLogEntry {
+    id: number;
+    timestamp: string;
+    actor: string;
+    action: string;
+    resource_id: string;
+    justification: string | null;
+    category: string;
+}
+
+export interface AuditMonitorStats {
+    verified_signatures_percentage: string;
+    deduplicated_delivery_ids: number;
+}
+
+export async function getAuditLogs(
+    options: { category?: string; search?: string; limit?: number } = {},
+): Promise<AuditLogEntry[]> {
+    const params = new URLSearchParams();
+    if (options.category && options.category !== 'All Events') {
+        params.set('category', options.category);
+    }
+    if (options.search) {
+        params.set('search', options.search);
+    }
+    params.set('limit', String(options.limit ?? 50));
+
+    return await fetchFromAPI(`/api/v1/audit-logs/?${params.toString()}`);
+}
+
+export async function getAuditMonitorStats(): Promise<AuditMonitorStats> {
+    return await fetchFromAPI('/api/v1/audit-logs/monitor-stats');
+}
+
+export interface HealthStatus {
+    status: string;
+    database?: string;
+}
+
+/** Unauthenticated liveness probe used by the Settings page. */
+export async function getHealth(): Promise<HealthStatus> {
+    const base = getApiBase();
+    let response: Response;
+    try {
+        response = await fetch(`${base}/health`);
+    } catch {
+        throw new Error(`Cannot reach the BuildShield API at ${base}.`);
+    }
+
+    if (!response.ok) {
+        throw new Error(await readErrorMessage(response));
+    }
+
+    return await response.json();
+}
+
+/** Downloads the audit trail from the API as a file. */
+export async function exportAuditLogs(format: 'csv' | 'json'): Promise<{ blob: Blob; filename: string }> {
+    const base = getApiBase();
+    const token = getStoredToken();
+
+    let response: Response;
+    try {
+        response = await fetch(`${base}/api/v1/audit-logs/export?format=${format}`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+    } catch {
+        throw new Error(`Cannot reach the BuildShield API at ${base}.`);
+    }
+
+    if (response.status === 401) {
+        clearStoredToken();
+        window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+        throw new Error('Unauthorized');
+    }
+
+    if (!response.ok) {
+        throw new Error(await readErrorMessage(response));
+    }
+
+    return {
+        blob: await response.blob(),
+        filename: `buildshield_audit_logs.${format}`,
+    };
 }
