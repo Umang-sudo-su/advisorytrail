@@ -12,7 +12,24 @@ async def get_dashboard_stats(db: AsyncSession = Depends(get_db)):
     # Calculate Scan Totals
     active_scans = (await db.execute(select(func.count(Scan.id)).where(Scan.status == ScanStatus.IN_PROGRESS.value))).scalar() or 0
     failed_scans = (await db.execute(select(func.count(Scan.id)).where(Scan.status == ScanStatus.FAILED.value))).scalar() or 0
-    success_scans = (await db.execute(select(func.count(Scan.id)).where(Scan.status == ScanStatus.COMPLETED.value))).scalar() or 0
+    # A completed scan is only "clean" when it actually found nothing; a scan that
+    # completed with vulnerabilities is a success, not a clean pull request.
+    clean_scans = (
+        await db.execute(
+            select(func.count(Scan.id))
+            .where(Scan.status == ScanStatus.COMPLETED.value)
+            .where(~Scan.findings.any())
+        )
+    ).scalar() or 0
+
+    # Distinct repositories that currently have at least one finding on record.
+    vulnerable_repositories = (
+        await db.execute(
+            select(func.count(func.distinct(Scan.repository_id)))
+            .select_from(Scan)
+            .join(Finding, Finding.scan_id == Scan.id)
+        )
+    ).scalar() or 0
     
     # Calculate Severity Breakdown
     severity_result = await db.execute(
@@ -30,7 +47,8 @@ async def get_dashboard_stats(db: AsyncSession = Depends(get_db)):
     return {
         "active_pr_scans": active_scans,
         "failed_incomplete_scans": failed_scans,
-        "clean_prs": success_scans,
+        "clean_prs": clean_scans,
+        "vulnerable_repositories": vulnerable_repositories,
         "new_pr_vulnerabilities": breakdown["CRITICAL"] + breakdown["HIGH"],
         "severity_breakdown": breakdown
     }

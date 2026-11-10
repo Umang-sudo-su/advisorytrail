@@ -84,6 +84,15 @@ class Policy(Base):
     repository_id = Column(Integer, ForeignKey("repositories.id", ondelete="CASCADE"))
     rule_type = Column(String, nullable=False)
 
+class PolicySettings(Base):
+    """Single org-wide policy configuration edited on the Policies page."""
+    __tablename__ = "policy_settings"
+
+    id = Column(Integer, primary_key=True)
+    mode = Column(String, nullable=False, default="enforce")
+    rules = Column(JSON, nullable=False, default=dict)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
 class AuditLog(Base):
     __tablename__ = "audit_logs"
     

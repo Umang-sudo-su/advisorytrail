@@ -1,8 +1,6 @@
 import type { Repository, Scan, Finding, DashboardData, PolicyData } from './types';
 import { getApiBase, getDefaultCommitRef } from './settings';
 
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
 export async function getRepositories(): Promise<Repository[]> {
   return await fetchFromAPI('/api/v1/repositories/');
 }
@@ -18,18 +16,19 @@ export async function getDashboard(): Promise<DashboardData> {
   return await fetchFromAPI('/api/v1/stats/'); 
 }
 
-const policies: PolicyData = {
-  mode: 'enforce',
-  rules: [
-    { id: 'block-new', text: 'Rule 1: New Critical/High Vulnerability with Fixed Version -> BLOCK PR Check Run', enabled: true, locked: false },
-    { id: 'warn-existing', text: 'Rule 2: Pre-existing Vulnerability in Baseline -> WARN ONLY', enabled: true, locked: false },
-    { id: 'incomplete', text: 'Rule 3: Failed or Timed-Out Scan -> INCOMPLETE CHECK (Never mark clean)', enabled: true, locked: true },
-  ],
-};
-
 export async function getPolicies(): Promise<PolicyData> {
-  await wait(600);
-  return policies;
+  return await fetchFromAPI('/api/v1/policies/');
+}
+
+/** Persists the Policies page settings; the server records the change in the audit trail. */
+export async function savePolicies(policy: PolicyData): Promise<PolicyData> {
+  return await fetchFromAPI('/api/v1/policies/', {
+    method: 'PUT',
+    body: JSON.stringify({
+      mode: policy.mode,
+      rules: policy.rules.map(({ id, enabled }) => ({ id, enabled })),
+    }),
+  });
 }
 
 export const TOKEN_KEY = 'buildshield_token';

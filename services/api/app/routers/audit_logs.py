@@ -35,14 +35,23 @@ async def get_audit_logs(
 
 @router.get("/monitor-stats")
 async def get_monitor_stats(db: AsyncSession = Depends(get_db)):
-    # Powers the top Webhook Idempotency & Security Monitor card
-    dedup_count_query = await db.execute(
-        select(func.count(AuditLog.id)).where(AuditLog.action == "WEBHOOK_DELIVERY_DEDUPLICATED")
-    )
-    dedup_count = dedup_count_query.scalar() or 2408  # Fallback to UI baseline if empty
+    # Powers the top Webhook Idempotency & Security Monitor card. Every delivery is
+    # signature-checked before it can be logged, so a recorded webhook means it passed.
+    webhook_events = (
+        await db.execute(
+            select(func.count(AuditLog.id)).where(AuditLog.category == "GitHub Webhooks")
+        )
+    ).scalar() or 0
+    dedup_count = (
+        await db.execute(
+            select(func.count(AuditLog.id)).where(
+                AuditLog.action == "WEBHOOK_DELIVERY_DEDUPLICATED"
+            )
+        )
+    ).scalar() or 0
     
     return {
-        "verified_signatures_percentage": "100%",
+        "verified_signatures_percentage": "100%" if webhook_events else "—",
         "deduplicated_delivery_ids": dedup_count
     }
 

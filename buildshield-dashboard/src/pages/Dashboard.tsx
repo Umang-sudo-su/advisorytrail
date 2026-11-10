@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { LoaderCircle, TriangleAlert, CircleCheck, GitPullRequest } from 'lucide-react';
+import { LoaderCircle, TriangleAlert, CircleCheck, GitPullRequest, ShieldAlert } from 'lucide-react';
 import { getDashboard } from '../api';
 import { useFetch } from '../useFetch';
 import type { Severity, TrendPoint } from '../types';
@@ -158,6 +158,14 @@ function DashboardView({ data }: { data: any }) {
           icon={<CircleCheck size={17} />}
         >
           Success
+        </StatCard>
+        <StatCard
+          title="Vulnerable Repositories"
+          value={data?.vulnerable_repositories || 0}
+          tone="danger"
+          icon={<ShieldAlert size={17} />}
+        >
+          With findings
         </StatCard>
         <StatCard
           title="Failed / Incomplete Scans"

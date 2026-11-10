@@ -21,6 +21,7 @@ async def list_scans(
     result = await db.execute(
         select(Scan)
         .options(selectinload(Scan.findings), selectinload(Scan.repository))
+        .order_by(Scan.created_at.asc(), Scan.id.asc())
         .offset(skip)
         .limit(limit)
     )

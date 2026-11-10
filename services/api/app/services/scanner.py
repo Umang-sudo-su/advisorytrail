@@ -9,9 +9,10 @@ from sqlalchemy import func, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from app.models import Scan, ScanStatus, Finding, Policy
+from app.models import Scan, ScanStatus, Finding
 from app.database import engine
 from app.config import settings
+from app.services.policy import evaluate_check_run
 
 OSV_BATCH_QUERY_URL = "https://api.osv.dev/v1/querybatch"
 
@@ -219,6 +220,7 @@ async def run_osv_scan(scan_id: int):
                 return None
 
             total_findings = 0
+            blocking_new = 0
             lookups = asyncio.Semaphore(8)
 
             async with httpx.AsyncClient() as client:
@@ -252,6 +254,7 @@ async def run_osv_scan(scan_id: int):
                     fixed_versions = await asyncio.gather(*(lookup(item) for item in matches))
 
                     for (vuln, pkg_name, pkg_version, pkg_eco, severity_str), fixed_version in zip(matches, fixed_versions):
+                        is_new = (pkg_name, pkg_version) not in base_pkg_versions
                         db.add(Finding(
                             scan_id=scan.id,
                             osv_id=vuln.get("id", "UNKNOWN"),
@@ -262,43 +265,25 @@ async def run_osv_scan(scan_id: int):
                                 "summary": vuln.get("summary", "No summary provided"),
                                 "ecosystem": pkg_eco,
                                 "fixed_version": fixed_version,
-                                "is_new": (pkg_name, pkg_version) not in base_pkg_versions
+                                "is_new": is_new
                             }
                         ))
                         total_findings += 1
+                        # Rule 1 looks at vulnerabilities this PR introduces that have a fix.
+                        if is_new and fixed_version and severity_str in {"CRITICAL", "HIGH"}:
+                            blocking_new += 1
 
             scan.status = ScanStatus.COMPLETED.value
             scan.finished_at = datetime.now(timezone.utc)
             
             # --- POLICY EVALUATION ENGINE ---
-            policy_result = await db.execute(select(Policy).where(Policy.repository_id == scan.repository_id))
-            policy_rules = [p.rule_type for p in policy_result.scalars().all()]
-            
-            critical_count = (
-                await db.execute(
-                    select(func.count(Finding.id)).where(
-                        Finding.scan_id == scan.id, Finding.severity == "CRITICAL"
-                    )
-                )
-            ).scalar() or 0
-            
-            final_state = "success"
-            status_desc = f"BuildShield: {manifest_name} passed!"
-            
-            if total_findings > 0:
-                if "WARN_ON_PR" in policy_rules:
-                    final_state = "success"
-                    status_desc = f"BuildShield: {total_findings} vulns found (Warning Mode)."
-                elif "FAIL_ON_CRITICAL" in policy_rules:
-                    if critical_count > 0:
-                        final_state = "failure"
-                        status_desc = f"BuildShield: {critical_count} CRITICAL vulns found!"
-                    else:
-                        final_state = "success"
-                        status_desc = f"BuildShield: {total_findings} vulns found (None Critical)."
-                else:
-                    final_state = "failure"
-                    status_desc = f"BuildShield: {total_findings} vulnerabilities found in {manifest_name}."
+            # The mode and rule toggles come from the settings saved on the Policies page.
+            final_state, status_desc = await evaluate_check_run(
+                db,
+                manifest_name=manifest_name,
+                total_findings=total_findings,
+                blocking_new=blocking_new,
+            )
             
             await db.commit()
 

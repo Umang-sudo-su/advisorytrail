@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { TriangleAlert } from 'lucide-react';
+import { Search, TriangleAlert } from 'lucide-react';
 import { getScans, getRepositories } from '../api';
 import { useFetch } from '../useFetch';
 import StatusBadge from '../components/StatusBadge';
@@ -36,6 +36,19 @@ function formatDuration(seconds: number | null) {
   return minutes > 0 ? `${minutes}m ${String(rest).padStart(2, '0')}s` : `${rest}s`;
 }
 
+function formatTimestamp(value: string | null) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleString(undefined, {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 function FindingsCell({ status, count }: { status: string; count: number }) {
   const s = (status || '').toLowerCase();
   if (s === 'pending' || s === 'queued' || s === 'in_progress' || s === 'running') {
@@ -49,6 +62,7 @@ function FindingsCell({ status, count }: { status: string; count: number }) {
 
 function ScanTable({ scans, repos }: { scans: any[]; repos: any[] }) {
   const [filter, setFilter] = useState<Filter>('all');
+  const [query, setQuery] = useState('');
 
   const repoMap = repos.reduce((acc, repo) => {
     acc[repo.id] = repo.name;
@@ -66,10 +80,20 @@ function ScanTable({ scans, repos }: { scans: any[]; repos: any[] }) {
     // Count the length of the nested findings array from SQLAlchemy
     findingsCount: scan.findings?.length || scan.findings_count || 0,
     durationSeconds: typeof scan.duration_seconds === 'number' ? scan.duration_seconds : null,
+    createdAt: typeof scan.created_at === 'string' ? scan.created_at : null,
   }));
 
   const countFor = (f: Filter) => normalizedScans.filter((s) => matches(f, s.status)).length;
-  const shown = normalizedScans.filter((s) => matches(filter, s.status));
+
+  const needle = query.trim().toLowerCase();
+  const matchesQuery = (scan: (typeof normalizedScans)[number]) =>
+    needle === '' ||
+    [String(scan.id), scan.repoName, scan.prTitle, scan.status, scan.baseSha, scan.headSha]
+      .join(' ')
+      .toLowerCase()
+      .includes(needle);
+
+  const shown = normalizedScans.filter((s) => matches(filter, s.status) && matchesQuery(s));
 
   return (
     <>
@@ -94,17 +118,33 @@ function ScanTable({ scans, repos }: { scans: any[]; repos: any[] }) {
 
       <div className="panel-head">
         <h2 className="section-title">Scan Executions</h2>
-        <LiveBadge />
+        <div className="panel-tools">
+          <label className="search-box">
+            <Search size={15} aria-hidden="true" />
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search scans"
+              aria-label="Search scans by repository, status or ID"
+            />
+          </label>
+          <LiveBadge />
+        </div>
       </div>
 
       {shown.length === 0 ? (
-        <EmptyState title="No scans with this status" hint="Choose another filter to see more scans." />
+        <EmptyState
+          title={needle ? 'No scans match your search' : 'No scans with this status'}
+          hint={needle ? 'Try a different repository name, status or scan ID.' : 'Choose another filter to see more scans.'}
+        />
       ) : (
         <div className="table-wrap">
           <table className="table" aria-label="Scan executions">
             <thead>
               <tr>
                 <th scope="col">Scan ID</th>
+                <th scope="col">Timestamp</th>
                 <th scope="col">Repository &amp; PR</th>
                 <th scope="col">Base vs Head SHA</th>
                 <th scope="col">Scanner Engine</th>
@@ -117,6 +157,9 @@ function ScanTable({ scans, repos }: { scans: any[]; repos: any[] }) {
               {shown.map((scan) => (
                 <tr key={scan.id}>
                   <td>{scan.id}</td>
+                  <td>
+                    <span className="muted">{formatTimestamp(scan.createdAt)}</span>
+                  </td>
                   <td>
                     <strong>{scan.prTitle}</strong>
                     <br />

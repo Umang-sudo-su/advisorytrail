@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Search } from 'lucide-react';
 import { getFindings } from '../api';
 import { useFetch } from '../useFetch';
 import type { Severity, ReviewStatus } from '../types';
@@ -109,6 +110,7 @@ function FindingsView({ findings }: { findings: any[] }) {
   const [activeSeverities, setActiveSeverities] = useState<Severity[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [reviews, setReviews] = useState<Record<string, ReviewStatus>>({});
+  const [query, setQuery] = useState('');
 
   const map = new Map<string, any>();
 
@@ -153,10 +155,25 @@ function FindingsView({ findings }: { findings: any[] }) {
 
   const countFor = (c: string) => normalizedFindings.filter((f) => f.change === c).length;
 
+  const needle = query.trim().toLowerCase();
+  const matchesQuery = (f: (typeof normalizedFindings)[number]) =>
+    needle === '' ||
+    [
+      f.packageName,
+      f.currentVersion,
+      f.fixedVersion ?? '',
+      f.advisoryId,
+      f.severity,
+    ]
+      .join(' ')
+      .toLowerCase()
+      .includes(needle);
+
   const shown = normalizedFindings
     .filter(
       (f) =>
         f.change === change &&
+        matchesQuery(f) &&
         (activeSeverities.length === 0 || activeSeverities.includes(f.severity as Severity)),
     )
     .sort((a, b) => (severityRank[a.severity] ?? 99) - (severityRank[b.severity] ?? 99));
@@ -208,10 +225,22 @@ function FindingsView({ findings }: { findings: any[] }) {
       </section>
 
       <div className="split">
-        <section className="panel" aria-labelledby="list-title">
-          <h2 id="list-title" className="section-title">
-            Normalized Dependency Findings ({shown.length} unique packages)
-          </h2>
+        <section className="panel findings-list-panel" aria-labelledby="list-title">
+          <div className="panel-head">
+            <h2 id="list-title" className="section-title">
+              Normalized Dependency Findings ({shown.length} unique packages)
+            </h2>
+            <label className="search-box">
+              <Search size={15} aria-hidden="true" />
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search package or advisory"
+                aria-label="Search findings by package, version or advisory"
+              />
+            </label>
+          </div>
           {shown.length === 0 ? (
             <EmptyState
               title="No findings match these filters"
@@ -227,8 +256,11 @@ function FindingsView({ findings }: { findings: any[] }) {
                     aria-pressed={selected?.id === f.id}
                     onClick={() => setSelectedId(f.id)}
                   >
-                    <span>
-                      <strong>{f.packageName}</strong> ({f.currentVersion} {'->'} Fixed: {f.fixedVersion ?? 'none yet'})
+                    <span className="finding-main">
+                      <strong>{f.packageName}</strong>
+                      <span className="finding-meta">
+                        {f.currentVersion} {'->'} fixed: {f.fixedVersion ?? 'none yet'}
+                      </span>
                     </span>
                     <span className="row-badges">
                       <span className={`badge badge-${f.change}`}>{changeLabel[f.change]}</span>
@@ -241,7 +273,7 @@ function FindingsView({ findings }: { findings: any[] }) {
           )}
         </section>
 
-        <section className="panel" aria-labelledby="detail-title">
+        <section className="panel findings-detail-panel" aria-labelledby="detail-title">
           <h2 id="detail-title" className="section-title">
             Finding Detail &amp; Evidence Inspector
           </h2>

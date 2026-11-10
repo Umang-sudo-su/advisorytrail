@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CircleCheck, CircleX, TriangleAlert } from 'lucide-react';
-import { getPolicies } from '../api';
+import { getPolicies, savePolicies } from '../api';
 import { useFetch } from '../useFetch';
 import type { PolicyData, PolicyMode } from '../types';
 import { Loading, ErrorState } from '../components/PageState';
@@ -78,9 +78,66 @@ function CheckPreview({ mode, blockRuleOn }: { mode: PolicyMode; blockRuleOn: bo
   );
 }
 
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+
+/** Only the fields the server owns are part of the saved representation. */
+function settingsKey(policy: PolicyData) {
+  return JSON.stringify({
+    mode: policy.mode,
+    rules: policy.rules.map(({ id, enabled }) => ({ id, enabled })),
+  });
+}
+
+function SaveIndicator({ status, onRetry }: { status: SaveStatus; onRetry: () => void }) {
+  if (status === 'error') {
+    return (
+      <span className="save-state save-state-error" role="alert">
+        <TriangleAlert size={14} aria-hidden="true" />
+        Not saved
+        <button type="button" onClick={onRetry}>
+          Retry
+        </button>
+      </span>
+    );
+  }
+
+  return (
+    <span className="save-state" role="status" aria-live="polite">
+      {status === 'saved' && <CircleCheck size={14} aria-hidden="true" />}
+      {status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved' : 'Synced'}
+    </span>
+  );
+}
+
 function PoliciesView({ initial }: { initial: PolicyData }) {
   const [mode, setMode] = useState<PolicyMode>(initial.mode);
   const [rules, setRules] = useState(initial.rules);
+  const [status, setStatus] = useState<SaveStatus>('idle');
+  const [retryKey, setRetryKey] = useState(0);
+  const lastSaved = useRef(settingsKey(initial));
+
+  const payload: PolicyData = { mode, rules };
+  const key = settingsKey(payload);
+
+  // Persist every change, so switching tabs or reloading keeps the settings.
+  useEffect(() => {
+    if (key === lastSaved.current) return;
+
+    setStatus('saving');
+    const timer = setTimeout(() => {
+      savePolicies(payload)
+        .then((saved) => {
+          lastSaved.current = settingsKey(saved);
+          setMode(saved.mode);
+          setRules(saved.rules);
+          setStatus('saved');
+        })
+        .catch(() => setStatus('error'));
+    }, 400);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, retryKey]);
 
   const activeCount = rules.filter((r) => r.enabled).length;
   const blockRuleOn = rules.find((r) => r.id === 'block-new')?.enabled ?? false;
@@ -92,9 +149,12 @@ function PoliciesView({ initial }: { initial: PolicyData }) {
   return (
     <div className="stack">
       <section className="panel" aria-labelledby="mode-title">
-        <h2 id="mode-title" className="section-title">
-          Deterministic Policy Mode
-        </h2>
+        <div className="panel-head">
+          <h2 id="mode-title" className="section-title">
+            Deterministic Policy Mode
+          </h2>
+          <SaveIndicator status={status} onRetry={() => setRetryKey((value) => value + 1)} />
+        </div>
         <p className="muted">Determines build failure behavior when scan violations are detected.</p>
         <div className="segmented" role="group" aria-label="Policy mode">
           {modes.map(({ key, label }) => (
