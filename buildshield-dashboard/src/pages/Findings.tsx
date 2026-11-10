@@ -261,7 +261,7 @@ function FindingsView({ findings }: { findings: any[] }) {
 }
 
 export default function Findings() {
-  const { state, retry } = useFetch(getFindings);
+  const { state, retry } = useFetch(getFindings, { pollMs: 10000 });
 
   if (state.status === 'loading') return <Loading label="Loading findings" />;
   if (state.status === 'error') return <ErrorState message={state.message} onRetry={retry} />;

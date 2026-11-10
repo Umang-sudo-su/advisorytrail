@@ -4,6 +4,7 @@ import { getScans, getRepositories } from '../api';
 import { useFetch } from '../useFetch';
 import StatusBadge from '../components/StatusBadge';
 import { Loading, ErrorState, EmptyState } from '../components/PageState';
+import LiveBadge from '../components/LiveBadge';
 
 type Filter = 'all' | 'queued' | 'running' | 'succeeded' | 'partial' | 'failed';
 
@@ -26,10 +27,12 @@ function matches(filter: Filter, rawStatus: string) {
   return status === filter;
 }
 
-function formatDuration(seconds: number) {
-  if (isNaN(seconds) || seconds <= 0) return '2s'; 
-  const minutes = Math.floor(seconds / 60);
-  const rest = Math.floor(seconds % 60);
+function formatDuration(seconds: number | null) {
+  // The API only reports a duration once the scan actually finished; never invent one.
+  if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds < 0) return '—';
+  const total = Math.round(seconds);
+  const minutes = Math.floor(total / 60);
+  const rest = total % 60;
   return minutes > 0 ? `${minutes}m ${String(rest).padStart(2, '0')}s` : `${rest}s`;
 }
 
@@ -62,7 +65,7 @@ function ScanTable({ scans, repos }: { scans: any[]; repos: any[] }) {
     status: scan.status || 'UNKNOWN',
     // Count the length of the nested findings array from SQLAlchemy
     findingsCount: scan.findings?.length || scan.findings_count || 0,
-    durationSeconds: scan.duration_seconds || 4,
+    durationSeconds: typeof scan.duration_seconds === 'number' ? scan.duration_seconds : null,
   }));
 
   const countFor = (f: Filter) => normalizedScans.filter((s) => matches(f, s.status)).length;
@@ -89,7 +92,10 @@ function ScanTable({ scans, repos }: { scans: any[]; repos: any[] }) {
         <p>Scans blocked by security policy gates are isolated to maintain strict compliance tracking.</p>
       </div>
 
-      <h2 className="section-title">Scan Executions</h2>
+      <div className="panel-head">
+        <h2 className="section-title">Scan Executions</h2>
+        <LiveBadge />
+      </div>
 
       {shown.length === 0 ? (
         <EmptyState title="No scans with this status" hint="Choose another filter to see more scans." />
@@ -142,8 +148,8 @@ function ScanTable({ scans, repos }: { scans: any[]; repos: any[] }) {
 }
 
 export default function Scans() {
-  const { state: scanState, retry: retryScans } = useFetch(getScans);
-  const { state: repoState, retry: retryRepos } = useFetch(getRepositories);
+  const { state: scanState, retry: retryScans } = useFetch(getScans, { pollMs: 8000 });
+  const { state: repoState, retry: retryRepos } = useFetch(getRepositories, { pollMs: 10000 });
 
   if (scanState.status === 'loading' || repoState.status === 'loading') return <Loading label="Loading scans" />;
   

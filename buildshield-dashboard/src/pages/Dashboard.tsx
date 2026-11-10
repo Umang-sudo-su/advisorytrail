@@ -4,6 +4,7 @@ import { getDashboard } from '../api';
 import { useFetch } from '../useFetch';
 import type { Severity, TrendPoint } from '../types';
 import StatusBadge from '../components/StatusBadge';
+import LiveBadge from '../components/LiveBadge';
 import { Loading, ErrorState, EmptyState } from '../components/PageState';
 
 const severityOrder: { key: Severity; label: string }[] = [
@@ -170,9 +171,12 @@ function DashboardView({ data }: { data: any }) {
 
       <div className="split">
         <section className="panel" aria-labelledby="queue-title">
-          <h2 id="queue-title" className="section-title">
-            Live Pull Request Scan Queue
-          </h2>
+          <div className="panel-head">
+            <h2 id="queue-title" className="section-title">
+              Live Pull Request Scan Queue
+            </h2>
+            <LiveBadge />
+          </div>
           {safeQueue.length === 0 ? (
             <EmptyState title="No scans in the queue" hint="New pull requests appear here when they are scanned." />
           ) : (
@@ -260,7 +264,7 @@ function DashboardView({ data }: { data: any }) {
 }
 
 export default function Dashboard() {
-  const { state, retry } = useFetch(getDashboard);
+  const { state, retry } = useFetch(getDashboard, { pollMs: 8000 });
 
   if (state.status === 'loading') return <Loading label="Loading dashboard" />;
   if (state.status === 'error') return <ErrorState message={state.message} onRetry={retry} />;

@@ -41,6 +41,27 @@ class Scan(Base):
     repository = relationship("Repository", back_populates="scans")
     findings = relationship("Finding", back_populates="scan", cascade="all, delete-orphan")
     base_commit_hash = Column(String, nullable=True)
+    finished_at = Column(DateTime(timezone=True), nullable=True)
+
+    @property
+    def duration_seconds(self):
+        """Real elapsed time of the scan, or None when it never finished."""
+        if not self.created_at:
+            return None
+
+        end = self.finished_at
+        if end is None:
+            if self.status not in {ScanStatus.PENDING.value, ScanStatus.IN_PROGRESS.value}:
+                return None
+            end = datetime.now(timezone.utc)
+
+        start = self.created_at
+        if start.tzinfo is None:
+            start = start.replace(tzinfo=timezone.utc)
+        if end.tzinfo is None:
+            end = end.replace(tzinfo=timezone.utc)
+
+        return round(max((end - start).total_seconds(), 0.0), 1)
 
 class Finding(Base):
     __tablename__ = "findings"

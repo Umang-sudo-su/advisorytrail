@@ -1,12 +1,34 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Search, Plus, GitBranch, X, Play } from 'lucide-react';
-import { getRepositories, addRepository, triggerScan } from '../api';
+import { getRepositories, addRepository, triggerScan, getScan } from '../api';
 import { useFetch } from '../useFetch';
 import type { Repository } from '../types';
 import StatusBadge from '../components/StatusBadge';
 import { Loading, ErrorState, EmptyState } from '../components/PageState';
 
-function RepoList({ repos, query, onScan }: { repos: Repository[]; query: string; onScan: (id: string | number) => void }) {
+const FINISHED_STATUSES = new Set([
+  'completed',
+  'succeeded',
+  'success',
+  'failed',
+  'timed_out',
+  'error',
+  'partial',
+]);
+
+function RepoList({
+  repos,
+  query,
+  onScan,
+  scanning,
+  scanErrors,
+}: {
+  repos: Repository[];
+  query: string;
+  onScan: (id: string | number) => void;
+  scanning: Record<string, number>;
+  scanErrors: Record<string, string>;
+}) {
   if (repos.length === 0) {
     return (
       <EmptyState
@@ -59,10 +81,22 @@ function RepoList({ repos, query, onScan }: { repos: Repository[]; query: string
               <p className="label">Latest scan</p>
               <StatusBadge status={repo.latestScanStatus || 'unknown'} />
             </div>
-            <button type="button" className="scan-btn" onClick={() => onScan(repo.id)}>
-              <Play size={15} aria-hidden="true" />
-              Trigger Local Scan
-            </button>
+            {scanning[String(repo.id)] ? (
+              <button type="button" className="scan-btn is-scanning" disabled aria-live="polite">
+                <span className="spinner" aria-hidden="true" />
+                Scanning
+              </button>
+            ) : (
+              <button type="button" className="scan-btn" onClick={() => onScan(repo.id)}>
+                <Play size={15} aria-hidden="true" />
+                Trigger Local Scan
+              </button>
+            )}
+            {scanErrors[String(repo.id)] && (
+              <p className="scan-error" role="alert">
+                {scanErrors[String(repo.id)]}
+              </p>
+            )}
           </div>
         </li>
       ))}
@@ -71,13 +105,52 @@ function RepoList({ repos, query, onScan }: { repos: Repository[]; query: string
 }
 
 export default function Repositories() {
-  const { state, retry } = useFetch(getRepositories);
+  const { state, retry } = useFetch(getRepositories, { pollMs: 10000 });
   const [query, setQuery] = useState('');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newRepo, setNewRepo] = useState({ name: '', url: '', branch: 'main' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+
+  // repository id -> scan id currently running from this page
+  const [scanning, setScanning] = useState<Record<string, number>>({});
+  const [scanErrors, setScanErrors] = useState<Record<string, string>>({});
+  const watching = Object.values(scanning).join(',');
+
+  // The scan runs in the background, so the card keeps watching it until the
+  // backend reports a finished status, then the button comes back.
+  useEffect(() => {
+    if (!watching) return;
+    let cancelled = false;
+
+    const check = async () => {
+      await Promise.all(
+        Object.entries(scanning).map(async ([repoId, scanId]) => {
+          try {
+            const scan = await getScan(scanId);
+            if (cancelled || !FINISHED_STATUSES.has(String(scan.status).toLowerCase())) return;
+            setScanning((current) => {
+              if (!(repoId in current)) return current;
+              const next = { ...current };
+              delete next[repoId];
+              return next;
+            });
+            retry();
+          } catch {
+            // A transient error must not clear the spinner; try again on the next tick.
+          }
+        }),
+      );
+    };
+
+    void check();
+    const timer = window.setInterval(check, 2000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [watching, retry]);
 
   const handleAddRepo = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,12 +169,21 @@ export default function Repositories() {
   };
 
   const handleTriggerScan = async (repoId: string | number) => {
+    const key = String(repoId);
+    setScanErrors((current) => {
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+
     try {
-      await triggerScan(repoId);
-      alert('Scan triggered successfully!');
+      const scan = await triggerScan(repoId);
+      if (scan?.id) {
+        setScanning((current) => ({ ...current, [key]: scan.id }));
+      }
       retry();
     } catch (err: any) {
-      alert(`Failed to trigger scan: ${err.message}`);
+      setScanErrors((current) => ({ ...current, [key]: err?.message || 'Failed to trigger scan' }));
     }
   };
 
@@ -126,7 +208,15 @@ export default function Repositories() {
 
       {state.status === 'loading' && <Loading label="Loading repositories" />}
       {state.status === 'error' && <ErrorState message={state.message} onRetry={retry} />}
-      {state.status === 'success' && <RepoList repos={state.data} query={query} onScan={handleTriggerScan} />}
+      {state.status === 'success' && (
+        <RepoList
+          repos={state.data}
+          query={query}
+          onScan={handleTriggerScan}
+          scanning={scanning}
+          scanErrors={scanErrors}
+        />
+      )}
 
       {isModalOpen && (
         <div className="modal-backdrop">

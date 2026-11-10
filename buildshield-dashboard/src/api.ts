@@ -171,6 +171,19 @@ export async function addRepository(data: { name: string; url: string; branch: s
     });
 }
 
+export interface ScanStatusResult {
+    id: number;
+    repository_id: number;
+    status: string;
+    created_at: string;
+    duration_seconds: number | null;
+}
+
+/** Polled by the repository cards while a scan is running. */
+export async function getScan(scanId: number): Promise<ScanStatusResult> {
+    return await fetchFromAPI(`/api/v1/scans/${scanId}`);
+}
+
 export async function triggerScan(repositoryId: string | number, commitRef: string = getDefaultCommitRef()) {
     return await fetchFromAPI('/api/v1/scans/', {
         method: 'POST',

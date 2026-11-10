@@ -422,6 +422,38 @@ p {
 .badge-muted { background: var(--surface-container); color: var(--muted); }
 
 .badge-primary { background: var(--primary-container); color: var(--on-primary-container); }
+
+.live-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.24rem 0.6rem;
+  border-radius: 999px;
+  background: var(--secondary-container);
+  color: var(--on-secondary-container);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--primary);
+  animation: live-pulse 2s var(--ease) infinite;
+}
+
+@keyframes live-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 55%, transparent); }
+  70% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--primary) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 0%, transparent); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-dot { animation: none; }
+}
 .badge-incomplete { background: var(--primary); color: var(--on-primary); }
 .badge-new { background: var(--ok); color: var(--on-ok); }
 .badge-existing { background: var(--surface-container-high); color: var(--text); }
@@ -504,6 +536,43 @@ p {
   background: var(--primary-container);
   border-color: transparent;
   color: var(--on-primary-container);
+}
+
+.scan-btn.is-scanning,
+.scan-btn.is-scanning:hover {
+  background: var(--primary-container);
+  border-color: transparent;
+  color: var(--on-primary-container);
+  cursor: progress;
+  opacity: 1;
+}
+
+.spinner {
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2.4s;
+  }
+}
+
+.scan-error {
+  flex-basis: 100%;
+  margin: 0.4rem 0 0;
+  font-size: 0.76rem;
+  color: var(--danger);
 }
 
 /* --------------------------------------------------------------------------

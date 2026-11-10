@@ -19,6 +19,9 @@ services:
     build: ./services/api
     ports:
       - "8000:8000"
+    # Repository credentials (GITHUB_TOKEN) live here; the entries below override host paths.
+    env_file:
+      - ./services/api/.env
     environment:
       - DATABASE_URL=postgresql+asyncpg://buildshield_user:supersecurepassword@db:5432/buildshield_db
       - GITHUB_WEBHOOK_SECRET=my_super_secure_local_testing_secret

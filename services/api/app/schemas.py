@@ -45,5 +45,6 @@ class ScanResponse(BaseModel):
     commit_hash: str
     status: str
     created_at: datetime
+    duration_seconds: Optional[float] = None
     findings: List[FindingResponse] = []
     model_config = ConfigDict(from_attributes=True)

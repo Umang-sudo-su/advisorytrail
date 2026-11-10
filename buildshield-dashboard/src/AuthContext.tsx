@@ -8,6 +8,7 @@ import {
   UNAUTHORIZED_EVENT,
   type AuthUser,
 } from './api';
+import { stopLiveStream } from './live';
 
 interface AuthContextType {
   token: string | null;
@@ -28,6 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [remember, setRememberState] = useState(() => Boolean(localStorage.getItem(TOKEN_KEY)));
 
   const logout = useCallback(() => {
+    stopLiveStream();
     clearStoredToken();
     setUser(null);
     setToken(null);

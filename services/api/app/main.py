@@ -8,6 +8,7 @@ from app.routers import repositories, scans, webhooks, auth
 from app.routers import findings
 from app.routers import policies
 from app.routers import audit_logs
+from app.routers import events
 from app.database import get_db, engine, Base
 import app.models
 from app.routers import repositories, scans, webhooks
@@ -43,6 +44,7 @@ app.include_router(stats.router)
 app.include_router(findings.router)
 app.include_router(policies.router)
 app.include_router(audit_logs.router)  # Add this line to include the audit logs router
+app.include_router(events.router)      # Live dashboard updates (SSE)
 
 @app.get("/health")
 async def health_check(db: AsyncSession = Depends(get_db)):
