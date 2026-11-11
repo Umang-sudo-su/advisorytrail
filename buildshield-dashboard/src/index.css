@@ -190,10 +190,21 @@ p {
   padding: 0 0.6rem;
 }
 
-.brand-mark {
-  width: 36px;
-  height: 36px;
-  flex-shrink: 0;
+/* The full-colour artwork keeps its brand colours, so it sits on a light plate
+   that gives the dark mark and grey wordmark enough contrast on the dark rail. */
+.brand-plate {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 9px;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 6px 16px -10px rgba(0, 0, 0, 0.55);
+}
+
+.brand-logo {
+  display: block;
+  height: 26px;
+  width: auto;
 }
 
 .brand-name {

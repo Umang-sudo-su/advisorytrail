@@ -25,9 +25,23 @@ services:
     environment:
       - DATABASE_URL=postgresql+asyncpg://buildshield_user:supersecurepassword@db:5432/buildshield_db
       - GITHUB_WEBHOOK_SECRET=my_super_secure_local_testing_secret
+      # Local SMTP sink. MailHog captures every message at http://localhost:8025.
+      - SMTP_HOST=mailhog
+      - SMTP_PORT=1025
+      - SMTP_FROM=no-reply@buildshield.local
+      - SMTP_SECURITY=none
+      - SCHEDULER_TICK_SECONDS=20
     depends_on:
       db:
         condition: service_healthy
+      mailhog:
+        condition: service_started
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI and API
 
 volumes:
   buildshield_db_data_v1:

@@ -8,6 +8,7 @@ import {
   type AuditMonitorStats,
 } from '../api';
 import { Loading, ErrorState, EmptyState } from '../components/PageState';
+import { cachedPrefs, formatDateTime } from '../prefs';
 import './AuditLogs.css';
 
 const categories = [
@@ -15,6 +16,7 @@ const categories = [
   'Finding Reviews & Dismissals',
   'GitHub Webhooks',
   'Policy Changes',
+  'Settings',
   'Tenant Access',
 ];
 
@@ -24,14 +26,8 @@ type LogState =
   | { status: 'error'; logs: AuditLogEntry[]; message: string };
 
 function formatTimestamp(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-
-  const pad = (part: number) => String(part).padStart(2, '0');
-  return [
-    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`,
-    `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`,
-  ].join(' ');
+  // Honours the date, time and time-zone preferences saved in Settings.
+  return formatDateTime(value, { seconds: true });
 }
 
 function actionTone(action: string) {
@@ -54,6 +50,7 @@ export default function AuditLogs() {
   const [monitor, setMonitor] = useState<AuditMonitorStats | null>(null);
   const [exporting, setExporting] = useState<'csv' | 'json' | null>(null);
   const [exportError, setExportError] = useState('');
+  const [pageSize] = useState(() => cachedPrefs().page_size);
 
   useEffect(() => {
     const timer = setTimeout(() => setSearch(query.trim()), 300);
@@ -64,7 +61,7 @@ export default function AuditLogs() {
     let cancelled = false;
     setState((current) => ({ status: 'loading', logs: current.logs }));
 
-    getAuditLogs({ category, search })
+    getAuditLogs({ category, search, limit: pageSize })
       .then((logs) => {
         if (!cancelled) setState({ status: 'success', logs });
       })
@@ -80,7 +77,7 @@ export default function AuditLogs() {
     return () => {
       cancelled = true;
     };
-  }, [category, search, reloadKey]);
+  }, [category, search, reloadKey, pageSize]);
 
   useEffect(() => {
     let cancelled = false;

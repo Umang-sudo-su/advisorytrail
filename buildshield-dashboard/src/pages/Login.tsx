@@ -5,6 +5,7 @@ import {
   Eye,
   EyeOff,
   GitPullRequest,
+  KeyRound,
   LoaderCircle,
   Lock,
   Mail,
@@ -12,7 +13,7 @@ import {
   User,
 } from 'lucide-react';
 import { useAuth } from '../AuthContext';
-import { loginUser, registerUser } from '../api';
+import { loginUser, registerUser, verifyTwoFactor } from '../api';
 import './Login.css';
 
 type Mode = 'login' | 'register';
@@ -32,6 +33,8 @@ export default function Login() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [challenge, setChallenge] = useState<string | null>(null);
+  const [code, setCode] = useState('');
 
   const isRegistering = mode === 'register';
 
@@ -77,8 +80,31 @@ export default function Login() {
         return;
       }
 
-      const token = await loginUser(trimmedIdentifier, password);
+      const result = await loginUser(trimmedIdentifier, password);
+      if (result.kind === '2fa') {
+        setChallenge(result.challengeToken);
+        setPassword('');
+        setNotice('Enter the 6-digit code from your authenticator app, or a recovery code.');
+        return;
+      }
+
       // Successful login replaces this screen with the dashboard.
+      login(result.token, remember);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleVerify = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!challenge || submitting) return;
+
+    setError('');
+    setSubmitting(true);
+    try {
+      const token = await verifyTwoFactor(challenge, code.trim());
       login(token, remember);
     } catch (err) {
       setError(errorMessage(err));
@@ -87,15 +113,21 @@ export default function Login() {
     }
   };
 
+  const restartSignIn = () => {
+    setChallenge(null);
+    setCode('');
+    setError('');
+    setNotice('');
+  };
+
   return (
     <div className="login-page">
       <div className="login-shell">
         <aside className="login-brand">
-          <img src="/assets/logo-mark.svg" alt="" className="brand-shield" aria-hidden="true" />
+          <img src="/assets/logo-mark-light.png" alt="" className="brand-shield" aria-hidden="true" />
 
           <div className="brand-top">
-            <img src="/assets/logo-mark.svg" alt="" className="login-logo" />
-            <h2 className="brand-name">BuildShield</h2>
+            <img src="/assets/logo-lockup-light.png" alt="BuildShield" className="login-lockup" />
             <p className="brand-tagline">Scan &bull; Detect &bull; Protect</p>
           </div>
 
@@ -128,13 +160,69 @@ export default function Login() {
             {isRegistering ? 'New account' : 'Secure sign in'}
           </span>
 
-          <h1>{isRegistering ? 'Create your account' : 'Welcome back'}</h1>
+          <h1>{challenge ? 'Two-factor verification' : isRegistering ? 'Create your account' : 'Welcome back'}</h1>
           <p className="form-subtitle">
             {isRegistering
               ? 'Register to start scanning your repositories.'
               : 'Sign in to review scans, findings and policy decisions.'}
           </p>
 
+          {challenge ? (
+            <form className="login-form" onSubmit={handleVerify} noValidate>
+              <div className="field">
+                <label className="field-label" htmlFor="auth-code">
+                  Authenticator or recovery code
+                </label>
+                <div className="field-control">
+                  <KeyRound size={18} aria-hidden="true" />
+                  <input
+                    id="auth-code"
+                    name="code"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    placeholder="123456 or AAAA-BBBB"
+                    value={code}
+                    onChange={(event) => setCode(event.target.value)}
+                    required
+                    autoFocus
+                  />
+                </div>
+              </div>
+
+              {error && (
+                <p className="alert alert-error" role="alert">
+                  <TriangleAlert size={16} aria-hidden="true" />
+                  {error}
+                </p>
+              )}
+
+              {notice && (
+                <p className="alert alert-success" role="status">
+                  <CircleCheck size={16} aria-hidden="true" />
+                  {notice}
+                </p>
+              )}
+
+              <button type="submit" className="submit-button" disabled={submitting || code.trim().length < 6}>
+                {submitting ? (
+                  <>
+                    <LoaderCircle size={18} className="spin" aria-hidden="true" />
+                    Verifying…
+                  </>
+                ) : (
+                  <>
+                    Verify and sign in
+                    <ArrowRight size={18} aria-hidden="true" />
+                  </>
+                )}
+              </button>
+
+              <button type="button" className="link-button" onClick={restartSignIn}>
+                Start over
+              </button>
+            </form>
+          ) : (
           <form className="login-form" onSubmit={handleSubmit} noValidate>
             <div className="field">
               <label className="field-label" htmlFor="auth-identifier">
@@ -250,13 +338,16 @@ export default function Login() {
               )}
             </button>
           </form>
+          )}
 
-          <p className="form-footer">
-            {isRegistering ? 'Already have an account?' : 'New to BuildShield?'}
-            <button type="button" className="link-button" onClick={switchMode}>
-              {isRegistering ? 'Sign in' : 'Create an account'}
-            </button>
-          </p>
+          {!challenge && (
+            <p className="form-footer">
+              {isRegistering ? 'Already have an account?' : 'New to BuildShield?'}
+              <button type="button" className="link-button" onClick={switchMode}>
+                {isRegistering ? 'Sign in' : 'Create an account'}
+              </button>
+            </p>
+          )}
 
           <p className="session-note">
             <Lock size={12} aria-hidden="true" />

@@ -1,23 +1,42 @@
 from app.routers import scans, stats  # <-- Add stats here
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.gzip import GZipMiddleware
 from app.routers import repositories, scans, webhooks, auth
 from app.routers import findings
 from app.routers import policies
 from app.routers import audit_logs
 from app.routers import events
+from app.routers import settings as settings_router
 from app.database import get_db, engine, Base
+from app.migrations import ensure_schema
+from app.services.scheduler import scheduler_loop
 import app.models
+import asyncio
+from contextlib import suppress
 from app.routers import repositories, scans, webhooks
+
+# Surface scheduler and notification activity in container logs.
+logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    yield
+        await ensure_schema(conn)
+
+    # Background scheduler: automatic scans and due notification delivery.
+    scheduler_task = asyncio.create_task(scheduler_loop())
+    try:
+        yield
+    finally:
+        scheduler_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await scheduler_task
 
 app = FastAPI(
     title="BuildShield API",
@@ -25,6 +44,8 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+# Large JSON lists (findings, scans) compress ~10x on the wire.
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -45,6 +66,7 @@ app.include_router(findings.router)
 app.include_router(policies.router)
 app.include_router(audit_logs.router)  # Add this line to include the audit logs router
 app.include_router(events.router)      # Live dashboard updates (SSE)
+app.include_router(settings_router.router)  # Settings page (workspace, account, team, tokens, webhooks)
 
 @app.get("/health")
 async def health_check(db: AsyncSession = Depends(get_db)):

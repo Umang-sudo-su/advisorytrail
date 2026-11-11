@@ -1,4 +1,17 @@
-import type { Repository, Scan, Finding, DashboardData, PolicyData } from './types';
+import type {
+  Repository,
+  Scan,
+  Finding,
+  DashboardData,
+  PolicyData,
+  SettingsPayload,
+  UserPreferences,
+  WorkspaceSettings,
+  ScanConfig,
+  WorkspaceMember,
+  ApiTokenInfo,
+  WebhookInfo,
+} from './types';
 import { getApiBase, getDefaultCommitRef } from './settings';
 
 export async function getRepositories(): Promise<Repository[]> {
@@ -28,6 +41,110 @@ export async function savePolicies(policy: PolicyData): Promise<PolicyData> {
       mode: policy.mode,
       rules: policy.rules.map(({ id, enabled }) => ({ id, enabled })),
     }),
+  });
+}
+
+export async function getSettings(): Promise<SettingsPayload> {
+  return await fetchFromAPI('/api/v1/settings/');
+}
+
+export async function saveWorkspaceSettings(payload: {
+  name?: string;
+  scan?: Partial<ScanConfig>;
+}): Promise<{ workspace: WorkspaceSettings }> {
+  return await fetchFromAPI('/api/v1/settings/workspace', {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function saveUserPreferences(
+  patch: Partial<UserPreferences>,
+): Promise<{ user: UserPreferences }> {
+  return await fetchFromAPI('/api/v1/settings/user', {
+    method: 'PUT',
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function sendTestNotification(): Promise<{ delivered: boolean; detail: string }> {
+  return await fetchFromAPI('/api/v1/settings/notifications/test', { method: 'POST' });
+}
+
+export async function inviteMember(
+  email: string,
+  role: string,
+): Promise<{ member: WorkspaceMember; email_sent: boolean; note: string }> {
+  return await fetchFromAPI('/api/v1/settings/members', {
+    method: 'POST',
+    body: JSON.stringify({ email, role }),
+  });
+}
+
+export async function updateMemberRole(
+  memberId: number,
+  role: string,
+): Promise<{ member: WorkspaceMember }> {
+  return await fetchFromAPI(`/api/v1/settings/members/${memberId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ role }),
+  });
+}
+
+export async function removeMember(memberId: number): Promise<void> {
+  await fetchFromAPI(`/api/v1/settings/members/${memberId}`, { method: 'DELETE' });
+}
+
+export async function createApiToken(
+  name: string,
+  expiresInDays: number | null,
+  scopes: string[] = ['read', 'write'],
+): Promise<{ token: ApiTokenInfo; secret: string; note: string }> {
+  return await fetchFromAPI('/api/v1/settings/tokens', {
+    method: 'POST',
+    body: JSON.stringify({ name, expires_in_days: expiresInDays, scopes }),
+  });
+}
+
+export async function revokeApiToken(tokenId: number): Promise<void> {
+  await fetchFromAPI(`/api/v1/settings/tokens/${tokenId}`, { method: 'DELETE' });
+}
+
+export async function createWebhook(
+  name: string,
+  url: string,
+  events: string[],
+): Promise<{ webhook: WebhookInfo; secret: string; note: string }> {
+  return await fetchFromAPI('/api/v1/settings/webhooks', {
+    method: 'POST',
+    body: JSON.stringify({ name, url, events }),
+  });
+}
+
+export async function updateWebhook(
+  webhookId: number,
+  patch: { name?: string; url?: string; events?: string[]; enabled?: boolean },
+): Promise<{ webhook: WebhookInfo }> {
+  return await fetchFromAPI(`/api/v1/settings/webhooks/${webhookId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function deleteWebhook(webhookId: number): Promise<void> {
+  await fetchFromAPI(`/api/v1/settings/webhooks/${webhookId}`, { method: 'DELETE' });
+}
+
+export async function testWebhook(
+  webhookId: number,
+): Promise<{ delivered: boolean; detail: string; webhook: WebhookInfo }> {
+  return await fetchFromAPI(`/api/v1/settings/webhooks/${webhookId}/test`, { method: 'POST' });
+}
+
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  await fetchFromAPI('/api/v1/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
   });
 }
 
@@ -139,7 +256,11 @@ async function postAuthRequest(path: string, body: BodyInit, contentType: string
     return response;
 }
 
-export async function loginUser(identifier: string, password: string): Promise<string> {
+export type LoginResult =
+    | { kind: 'session'; token: string }
+    | { kind: '2fa'; challengeToken: string };
+
+export async function loginUser(identifier: string, password: string): Promise<LoginResult> {
     const formData = new URLSearchParams();
     formData.append('username', identifier); // FastAPI OAuth2 form field (username or email)
     formData.append('password', password);
@@ -147,11 +268,117 @@ export async function loginUser(identifier: string, password: string): Promise<s
     const response = await postAuthRequest('/api/v1/auth/login', formData, 'application/x-www-form-urlencoded');
     const data = await response.json();
 
+    if (data?.requires_2fa && data?.challenge_token) {
+        return { kind: '2fa', challengeToken: data.challenge_token as string };
+    }
+
     if (!data?.access_token) {
         throw new Error('The API did not return an access token.');
     }
 
+    return { kind: 'session', token: data.access_token as string };
+}
+
+export async function verifyTwoFactor(challengeToken: string, code: string): Promise<string> {
+    const data = await fetchFromAPI('/api/v1/auth/2fa/verify', {
+        method: 'POST',
+        body: JSON.stringify({ challenge_token: challengeToken, code }),
+    });
+    if (!data?.access_token) throw new Error('The API did not return an access token.');
     return data.access_token as string;
+}
+
+export interface TwoFactorStatus {
+    enabled: boolean;
+    recovery_codes_remaining: number;
+}
+
+export async function getTwoFactorStatus(): Promise<TwoFactorStatus> {
+    return await fetchFromAPI('/api/v1/auth/2fa/status');
+}
+
+export interface TwoFactorSetup {
+    secret: string;
+    otpauth_uri: string;
+    digits: number;
+    period: number;
+}
+
+export async function setupTwoFactor(): Promise<TwoFactorSetup> {
+    return await fetchFromAPI('/api/v1/auth/2fa/setup', { method: 'POST' });
+}
+
+export async function enableTwoFactor(code: string): Promise<{ recovery_codes: string[] }> {
+    return await fetchFromAPI('/api/v1/auth/2fa/enable', {
+        method: 'POST',
+        body: JSON.stringify({ code }),
+    });
+}
+
+export async function disableTwoFactor(password: string): Promise<void> {
+    await fetchFromAPI('/api/v1/auth/2fa/disable', {
+        method: 'POST',
+        body: JSON.stringify({ password }),
+    });
+}
+
+export interface SessionInfo {
+    id: number;
+    jti: string;
+    user_agent: string | null;
+    ip_address: string | null;
+    created_at: string | null;
+    last_seen_at: string | null;
+    revoked_at: string | null;
+    current: boolean;
+}
+
+export async function getSessions(): Promise<SessionInfo[]> {
+    return await fetchFromAPI('/api/v1/auth/sessions');
+}
+
+export async function revokeSession(sessionId: number): Promise<void> {
+    await fetchFromAPI(`/api/v1/auth/sessions/${sessionId}`, { method: 'DELETE' });
+}
+
+export async function revokeOtherSessions(): Promise<{ revoked: number }> {
+    return await fetchFromAPI('/api/v1/auth/sessions/revoke-others', { method: 'POST' });
+}
+
+export async function logoutSession(): Promise<void> {
+    await fetchFromAPI('/api/v1/auth/logout', { method: 'POST' });
+}
+
+export async function connectGitHub(token: string): Promise<{ github: { account: string | null } }> {
+    return await fetchFromAPI('/api/v1/settings/github/connect', {
+        method: 'POST',
+        body: JSON.stringify({ token }),
+    });
+}
+
+export async function disconnectGitHub(): Promise<void> {
+    await fetchFromAPI('/api/v1/settings/github/disconnect', { method: 'POST' });
+}
+
+export async function runScheduledScansNow(): Promise<{
+    queued: { scan_id: number; repository: string; branch: string }[];
+}> {
+    return await fetchFromAPI('/api/v1/settings/scan/schedule/run', { method: 'POST' });
+}
+
+export interface NotificationInfo {
+    id: number;
+    event: string;
+    subject: string;
+    status: string;
+    detail: string | null;
+    created_at: string | null;
+    sent_at: string | null;
+    scheduled_for: string | null;
+}
+
+export async function getNotificationLog(): Promise<NotificationInfo[]> {
+    return await fetchFromAPI('/api/v1/settings/notifications');
 }
 
 export async function registerUser(payload: { username: string; email: string; password: string }): Promise<AuthUser> {

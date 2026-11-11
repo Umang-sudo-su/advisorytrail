@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { LoaderCircle, TriangleAlert, CircleCheck, GitPullRequest, ShieldAlert } from 'lucide-react';
 import { getDashboard } from '../api';
 import { useFetch } from '../useFetch';
+import { panelRefreshMs } from '../prefs';
 import type { Severity, TrendPoint } from '../types';
 import StatusBadge from '../components/StatusBadge';
 import LiveBadge from '../components/LiveBadge';
@@ -272,7 +273,8 @@ function DashboardView({ data }: { data: any }) {
 }
 
 export default function Dashboard() {
-  const { state, retry } = useFetch(getDashboard, { pollMs: 8000 });
+  // Interval and on/off come from Settings → General; live events still refresh immediately.
+  const { state, retry } = useFetch(getDashboard, { pollMs: panelRefreshMs() });
 
   if (state.status === 'loading') return <Loading label="Loading dashboard" />;
   if (state.status === 'error') return <ErrorState message={state.message} onRetry={retry} />;

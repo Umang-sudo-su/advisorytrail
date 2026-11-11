@@ -3,6 +3,7 @@ import {
   clearStoredToken,
   getCurrentUser,
   getStoredToken,
+  logoutSession,
   storeToken,
   TOKEN_KEY,
   UNAUTHORIZED_EVENT,
@@ -29,6 +30,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [remember, setRememberState] = useState(() => Boolean(localStorage.getItem(TOKEN_KEY)));
 
   const logout = useCallback(() => {
+    // Revoke the server-side session too, so the token cannot be replayed.
+    logoutSession().catch(() => {
+      // Already-expired tokens have nothing to revoke.
+    });
     stopLiveStream();
     clearStoredToken();
     setUser(null);

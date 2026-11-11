@@ -9,9 +9,18 @@ let running = false;
 let abort: AbortController | null = null;
 let retryTimer: number | undefined;
 let retryCount = 0;
+let emitTimer: number | undefined;
 
+/**
+ * Coalesces a burst of state events into one refresh: a scan finishing changes
+ * several counts in a row, and each subscriber would otherwise refetch per event.
+ */
 function emit() {
-  for (const listener of listeners) listener();
+  if (emitTimer !== undefined) return;
+  emitTimer = window.setTimeout(() => {
+    emitTimer = undefined;
+    for (const listener of listeners) listener();
+  }, 250);
 }
 
 /**
@@ -33,6 +42,8 @@ export function stopLiveStream() {
   abort = null;
   if (retryTimer !== undefined) window.clearTimeout(retryTimer);
   retryTimer = undefined;
+  if (emitTimer !== undefined) window.clearTimeout(emitTimer);
+  emitTimer = undefined;
   retryCount = 0;
 }
 

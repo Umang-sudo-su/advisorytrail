@@ -1,13 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import func
 from sqlalchemy.orm import selectinload
+from sqlalchemy.orm.attributes import set_committed_value
 from typing import Optional, List
 
 from app.database import get_db
 from app.models import Scan, ScanStatus, Finding, Repository
 from app.schemas import ScanCreate, ScanResponse, FindingResponse
-from app.services.scanner import run_osv_scan
+from app.services.scanner import run_scan_with_limits
 
 router = APIRouter(prefix="/api/v1/scans", tags=["Scans"])
 
@@ -18,14 +20,26 @@ async def list_scans(
     db: AsyncSession = Depends(get_db)
 ):
     """Retrieve a paginated list of all vulnerability scans."""
+    # Count findings in SQL instead of loading them: a list entry only needs the number,
+    # and embedding every finding made each response ~100x larger.
+    finding_counts = (
+        select(Finding.scan_id, func.count(Finding.id).label("finding_count"))
+        .group_by(Finding.scan_id)
+        .subquery()
+    )
     result = await db.execute(
-        select(Scan)
-        .options(selectinload(Scan.findings), selectinload(Scan.repository))
+        select(Scan, func.coalesce(finding_counts.c.finding_count, 0))
+        .outerjoin(finding_counts, finding_counts.c.scan_id == Scan.id)
         .order_by(Scan.created_at.asc(), Scan.id.asc())
         .offset(skip)
         .limit(limit)
     )
-    scans = result.scalars().all()
+    scans = []
+    for scan, finding_count in result.all():
+        # Mark the collection as loaded-but-empty without triggering a lazy load.
+        set_committed_value(scan, "findings", [])
+        scan.findings_count = int(finding_count)
+        scans.append(scan)
     return scans
 
 @router.post("/", response_model=ScanResponse, status_code=status.HTTP_201_CREATED)
@@ -53,8 +67,8 @@ async def trigger_manual_scan(
     await db.commit()
     await db.refresh(new_scan)
 
-    # Dispatch background worker
-    background_tasks.add_task(run_osv_scan, new_scan.id)
+    # Dispatch background worker (honours the concurrency limit from Settings)
+    background_tasks.add_task(run_scan_with_limits, new_scan.id)
 
     # Reload scan with relationships for response
     result = await db.execute(
@@ -92,6 +106,7 @@ async def get_scan_detail(
         filtered_findings = [f for f in filtered_findings if f.severity and f.severity.upper() == severity.upper()]
     
     scan.findings = filtered_findings[offset : offset + limit]
+    scan.findings_count = len(filtered_findings)
     return scan
 
 @router.delete("/{scan_id}", status_code=status.HTTP_204_NO_CONTENT)

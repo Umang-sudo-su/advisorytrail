@@ -6,7 +6,8 @@ from sqlalchemy.future import select
 from app.database import get_db
 from app.config import settings
 from app.models import AuditLog, Repository, Scan, ScanStatus
-from app.services.scanner import run_osv_scan
+from app.services.scanner import run_scan_with_limits
+from app.services.preferences import get_workspace_row, scan_config
 
 router = APIRouter(prefix="/api/v1/webhooks", tags=["Webhooks"])
 
@@ -37,6 +38,9 @@ async def github_webhook(
     if x_github_event == "ping":
         return {"message": "pong"}
 
+    # Automatic triggers are configurable in Settings → Scan Configuration.
+    triggers = scan_config(await get_workspace_row(db))["triggers"]
+
     commit_hash = None
     base_commit_hash = None
     repo_data = payload.get("repository", {})
@@ -45,6 +49,8 @@ async def github_webhook(
 
     # 1. HANDLE PUSH EVENTS
     if x_github_event == "push":
+        if not triggers.get("push", False):
+            return {"message": "Push scans are disabled in Scan Configuration."}
         commit_hash = payload.get("after")
         if commit_hash == "0000000000000000000000000000000000000000":
             return {"message": "Branch deleted, skipping scan."}
@@ -52,9 +58,16 @@ async def github_webhook(
     # 2. HANDLE PULL REQUEST EVENTS
     elif x_github_event == "pull_request":
         action = payload.get("action")
-        # We only want to scan when a PR is newly opened or updated with new commits
-        if action not in ["opened", "synchronize"]:
+        trigger_for_action = {
+            "opened": "pr_opened",
+            "synchronize": "pr_synchronize",
+            "reopened": "pr_reopened",
+        }
+        # We only scan the actions the workspace has enabled in Settings.
+        if action not in trigger_for_action:
             return {"message": f"Ignoring pull_request action: {action}"}
+        if not triggers.get(trigger_for_action[action], True):
+            return {"message": f"Scan on pull_request {action} is disabled in Scan Configuration."}
         
         commit_hash = payload.get("pull_request", {}).get("head", {}).get("sha")
         base_commit_hash = payload.get("pull_request", {}).get("base", {}).get("sha")
@@ -87,13 +100,13 @@ async def github_webhook(
         actor="github-webhook-bot",
         action="WEBHOOK_DELIVERY_DEDUPLICATED",
         resource_id=f"repo-{repo.name.split('/')[-1]}",
-        justification="Automatic trigger on PR open",
+        justification=f"Automatic trigger on {x_github_event} {payload.get('action', 'push')}",
         category="GitHub Webhooks"
     ))
     await db.commit()
     await db.refresh(new_scan)
 
-    # Dispatch background worker
-    background_tasks.add_task(run_osv_scan, new_scan.id)
+    # Dispatch background worker (honours the concurrency limit from Settings)
+    background_tasks.add_task(run_scan_with_limits, new_scan.id)
 
     return {"message": "Scan triggered successfully", "scan_id": new_scan.id}

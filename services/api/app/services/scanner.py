@@ -1,8 +1,10 @@
 import asyncio
 import httpx
 import base64
+from contextvars import ContextVar
 import re
 import json
+import time
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 from sqlalchemy import func, update
@@ -13,6 +15,12 @@ from app.models import Scan, ScanStatus, Finding
 from app.database import engine
 from app.config import settings
 from app.services.policy import evaluate_check_run
+from app.services.preferences import get_workspace_row, scan_config
+from app.services.github_auth import load_connection as load_github_connection
+from app.services.notifications import notify_scan_result
+
+# Set per scan so status updates use the connected token without threading it through every call.
+_GITHUB_TOKEN_VAR: ContextVar[str | None] = ContextVar("buildshield_github_token", default=None)
 
 OSV_BATCH_QUERY_URL = "https://api.osv.dev/v1/querybatch"
 
@@ -86,14 +94,14 @@ def parse_package_lock(content: str):
         pass
     return packages
 
-async def fetch_manifest_from_github(owner_repo: str, commit_hash: str):
+async def fetch_manifest_from_github(owner_repo: str, commit_hash: str, token: str | None = None):
     """Returns ``(manifest_name, content)``, or ``(None, None)`` when nothing readable exists."""
-    if not settings.GITHUB_TOKEN:
-        print("[GitHub API] GITHUB_TOKEN not set. Cannot read repository manifests.")
+    if not token:
+        print("[GitHub API] No GitHub token available. Cannot read repository manifests.")
         return None, None
 
     headers = {
-        "Authorization": f"Bearer {settings.GITHUB_TOKEN}",
+        "Authorization": f"Bearer {token}",
         "Accept": "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28"
     }
@@ -117,21 +125,55 @@ async def fetch_manifest_from_github(owner_repo: str, commit_hash: str):
 
     return None, None
 
-async def update_github_commit_status(owner_repo: str, commit_hash: str, state: str, description: str, target_url: str = None):
-    if not settings.GITHUB_TOKEN or not owner_repo or "/" not in owner_repo: return
+async def update_github_commit_status(owner_repo: str, commit_hash: str, state: str, description: str, target_url: str = None, token: str | None = None):
+    token = token or _GITHUB_TOKEN_VAR.get()
+    if not token or not owner_repo or "/" not in owner_repo: return
     url = f"https://api.github.com/repos/{owner_repo}/statuses/{commit_hash}"
-    headers = {"Authorization": f"Bearer {settings.GITHUB_TOKEN}", "Accept": "application/vnd.github+json"}
+    headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
     payload = {"state": state, "description": description[:140], "context": "security/buildshield"}
     if target_url: payload["target_url"] = target_url
     try:
         async with httpx.AsyncClient() as client: await client.post(url, headers=headers, json=payload, timeout=10.0)
     except Exception: pass
 
+_SCAN_SEMAPHORE: asyncio.Semaphore | None = None
+_SCAN_SEMAPHORE_SIZE = 0
+
+
+def _semaphore_for(size: int) -> asyncio.Semaphore:
+    """Shared concurrency gate; rebuilt whenever the configured limit changes."""
+    global _SCAN_SEMAPHORE, _SCAN_SEMAPHORE_SIZE
+
+    size = max(1, min(10, int(size)))
+    if _SCAN_SEMAPHORE is None or _SCAN_SEMAPHORE_SIZE != size:
+        _SCAN_SEMAPHORE = asyncio.Semaphore(size)
+        _SCAN_SEMAPHORE_SIZE = size
+    return _SCAN_SEMAPHORE
+
+
+async def run_scan_with_limits(scan_id: int):
+    """Runs a scan under the concurrency limit saved in Settings → Scan Configuration."""
+    async with AsyncSession(engine, expire_on_commit=False) as db:
+        config = scan_config(await get_workspace_row(db))
+
+    semaphore = _semaphore_for(config.get("concurrency", 2))
+    async with semaphore:
+        await run_osv_scan(scan_id)
+
+
 async def run_osv_scan(scan_id: int):
     async with AsyncSession(engine, expire_on_commit=False) as db:
         result = await db.execute(select(Scan).options(selectinload(Scan.repository)).where(Scan.id == scan_id))
         scan = result.scalars().first()
         if not scan: return
+
+        config = scan_config(await get_workspace_row(db))
+        timeout_seconds = int(config.get("timeout_seconds", 600))
+        deadline = time.monotonic() + timeout_seconds
+
+        connection = await load_github_connection(db)
+        github_token = connection.token
+        _GITHUB_TOKEN_VAR.set(github_token)
 
         scan.status = ScanStatus.IN_PROGRESS.value
         await db.commit()
@@ -150,16 +192,23 @@ async def run_osv_scan(scan_id: int):
             manifest_name, manifest_content = None, None
             base_parsed = []
 
+            base_name, base_content = None, None
             if repo_identifier:
-                manifest_name, manifest_content = await fetch_manifest_from_github(repo_identifier, commit_hash)
+                # Head and base are independent GitHub round trips, so fetch them together
+                # instead of paying both latencies back to back.
+                if scan.base_commit_hash:
+                    (manifest_name, manifest_content), (base_name, base_content) = await asyncio.gather(
+                        fetch_manifest_from_github(repo_identifier, commit_hash, github_token),
+                        fetch_manifest_from_github(repo_identifier, scan.base_commit_hash, github_token),
+                    )
+                else:
+                    manifest_name, manifest_content = await fetch_manifest_from_github(repo_identifier, commit_hash, github_token)
 
-                # Fetch Base to Diff
-                if manifest_content and scan.base_commit_hash:
-                    base_name, base_content = await fetch_manifest_from_github(repo_identifier, scan.base_commit_hash)
-                    if base_content:
-                        if base_name == "package-lock.json": base_parsed = parse_package_lock(base_content)
-                        elif base_name == "poetry.lock": base_parsed = parse_poetry_lock(base_content)
-                        else: base_parsed = parse_requirements_txt(base_content)
+                # Parse Base to Diff
+                if manifest_content and base_content:
+                    if base_name == "package-lock.json": base_parsed = parse_package_lock(base_content)
+                    elif base_name == "poetry.lock": base_parsed = parse_poetry_lock(base_content)
+                    else: base_parsed = parse_requirements_txt(base_content)
 
             # Never invent a manifest: a repository we cannot read is an incomplete scan,
             # not a scan of unrelated demo packages.
@@ -169,6 +218,17 @@ async def run_osv_scan(scan_id: int):
                 await db.commit()
                 if repo_identifier:
                     await update_github_commit_status(repo_identifier, commit_hash, "error", "BuildShield: no readable dependency manifest.", f"http://127.0.0.1:8000/api/v1/scans/{scan.id}")
+                try:
+                    await notify_scan_result(
+                        db,
+                        scan.id,
+                        repository.name if repository else f"repository-{scan.repository_id}",
+                        commit_hash,
+                        "failed",
+                        "No readable dependency manifest was found for that commit.",
+                    )
+                except Exception as notify_error:
+                    print(f"[Scan {scan_id}] failure notification failed: {notify_error}")
                 return
 
             # 2. Parse Head Manifest
@@ -226,10 +286,18 @@ async def run_osv_scan(scan_id: int):
             async with httpx.AsyncClient() as client:
                 # OSV caps batch size, so query in chunks and keep result order aligned.
                 for start in range(0, len(parsed_packages), 250):
+                    # A scan that runs past the configured timeout must fail, never look clean.
+                    if time.monotonic() > deadline:
+                        raise TimeoutError(f"scan exceeded the configured {timeout_seconds}s timeout")
+
                     chunk = parsed_packages[start:start + 250]
                     queries = [{"package": {"name": pkg, "ecosystem": eco}, "version": ver} for pkg, ver, eco in chunk]
 
-                    response = await client.post(OSV_BATCH_QUERY_URL, json={"queries": queries}, timeout=30.0)
+                    response = await client.post(
+                        OSV_BATCH_QUERY_URL,
+                        json={"queries": queries},
+                        timeout=max(5.0, min(30.0, deadline - time.monotonic())),
+                    )
                     if response.status_code == 400:
                         print(f"[OSV] Rejected query batch: {response.text[:200]}")
                         continue
@@ -290,6 +358,19 @@ async def run_osv_scan(scan_id: int):
             if repo_identifier:
                 await update_github_commit_status(repo_identifier, scan.commit_hash, final_state, status_desc, f"http://127.0.0.1:8000/api/v1/scans/{scan.id}")
 
+            try:
+                await notify_scan_result(
+                    db,
+                    scan.id,
+                    repository.name if repository else f"repository-{scan.repository_id}",
+                    scan.commit_hash,
+                    "completed",
+                    status_desc,
+                    blocking_new,
+                )
+            except Exception as notify_error:
+                print(f"[Scan {scan_id}] notification failed: {notify_error}")
+
         except Exception as e:
             # Discard any partially collected findings, then mark the scan incomplete.
             await db.rollback()
@@ -303,3 +384,15 @@ async def run_osv_scan(scan_id: int):
             print(f"[Scan {scan_id}] failed: {e}")
             if repo_identifier:
                 await update_github_commit_status(repo_identifier, commit_hash, "error", f"BuildShield scan failed: {str(e)[:50]}", f"http://127.0.0.1:8000/api/v1/scans/{scan_id}")
+
+            try:
+                await notify_scan_result(
+                    db,
+                    scan_id,
+                    repository.name if repository else f"repository-{scan.repository_id}",
+                    commit_hash,
+                    "failed",
+                    f"The scan did not complete: {type(e).__name__}",
+                )
+            except Exception as notify_error:
+                print(f"[Scan {scan_id}] failure notification failed: {notify_error}")

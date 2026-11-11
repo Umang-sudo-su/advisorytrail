@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
 import { getFindings } from '../api';
 import { useFetch } from '../useFetch';
 import type { Severity, ReviewStatus } from '../types';
 import { Loading, ErrorState, EmptyState } from '../components/PageState';
+import { cachedPrefs } from '../prefs';
 
 const changeFilters: { key: string; label: string }[] = [
   { key: 'new', label: 'New in PR' },
@@ -111,10 +112,15 @@ function FindingsView({ findings }: { findings: any[] }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [reviews, setReviews] = useState<Record<string, ReviewStatus>>({});
   const [query, setQuery] = useState('');
+  const [showAll, setShowAll] = useState(false);
+  const pageSize = cachedPrefs().page_size;
 
-  const map = new Map<string, any>();
+  // Rebuilding this map parses every finding's JSON details, so it must not run on
+  // each keystroke in the search box or each filter click.
+  const normalizedFindings = useMemo(() => {
+    const map = new Map<string, any>();
 
-  findings.forEach((f) => {
+    findings.forEach((f) => {
     let details = f.details;
     if (typeof details === 'string') {
       try { details = JSON.parse(details); } catch (e) { details = {}; }
@@ -149,9 +155,10 @@ function FindingsView({ findings }: { findings: any[] }) {
         existing.advisoryId = f.osv_id || existing.advisoryId;
       }
     }
-  });
+    });
 
-  const normalizedFindings = Array.from(map.values());
+    return Array.from(map.values());
+  }, [findings]);
 
   const countFor = (c: string) => normalizedFindings.filter((f) => f.change === c).length;
 
@@ -178,6 +185,8 @@ function FindingsView({ findings }: { findings: any[] }) {
     )
     .sort((a, b) => (severityRank[a.severity] ?? 99) - (severityRank[b.severity] ?? 99));
 
+  // The default page size from Settings truncates the list, with an explicit way to see everything.
+  const visible = showAll ? shown : shown.slice(0, pageSize);
   const selected = shown.find((f) => f.id === selectedId) ?? shown[0];
 
   const toggleSeverity = (s: Severity) => {
@@ -248,7 +257,7 @@ function FindingsView({ findings }: { findings: any[] }) {
             />
           ) : (
             <ul className="finding-list">
-              {shown.map((f) => (
+              {visible.map((f) => (
                 <li key={f.id}>
                   <button
                     type="button"
@@ -270,6 +279,12 @@ function FindingsView({ findings }: { findings: any[] }) {
                 </li>
               ))}
             </ul>
+          )}
+
+          {shown.length > pageSize && (
+            <button type="button" className="btn btn-ghost" onClick={() => setShowAll((current) => !current)}>
+              {showAll ? 'Show fewer findings' : `Show all ${shown.length} findings`}
+            </button>
           )}
         </section>
 
@@ -293,7 +308,7 @@ function FindingsView({ findings }: { findings: any[] }) {
 }
 
 export default function Findings() {
-  const { state, retry } = useFetch(getFindings, { pollMs: 10000 });
+  const { state, retry } = useFetch(getFindings, { pollMs: 30000 });
 
   if (state.status === 'loading') return <Loading label="Loading findings" />;
   if (state.status === 'error') return <ErrorState message={state.message} onRetry={retry} />;

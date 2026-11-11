@@ -47,4 +47,5 @@ class ScanResponse(BaseModel):
     created_at: datetime
     duration_seconds: Optional[float] = None
     findings: List[FindingResponse] = []
+    findings_count: Optional[int] = None
     model_config = ConfigDict(from_attributes=True)

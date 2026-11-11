@@ -105,7 +105,7 @@ function RepoList({
 }
 
 export default function Repositories() {
-  const { state, retry } = useFetch(getRepositories, { pollMs: 10000 });
+  const { state, retry } = useFetch(getRepositories, { pollMs: 30000 });
   const [query, setQuery] = useState('');
 
   const [isModalOpen, setIsModalOpen] = useState(false);

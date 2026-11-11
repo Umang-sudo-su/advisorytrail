@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Search, TriangleAlert } from 'lucide-react';
 import { getScans, getRepositories } from '../api';
 import { useFetch } from '../useFetch';
+import { formatDateTime } from '../prefs';
 import StatusBadge from '../components/StatusBadge';
 import { Loading, ErrorState, EmptyState } from '../components/PageState';
 import LiveBadge from '../components/LiveBadge';
@@ -37,16 +38,8 @@ function formatDuration(seconds: number | null) {
 }
 
 function formatTimestamp(value: string | null) {
-  if (!value) return '—';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '—';
-  return date.toLocaleString(undefined, {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  // Honours the date, time and time-zone preferences saved in Settings.
+  return formatDateTime(value);
 }
 
 function FindingsCell({ status, count }: { status: string; count: number }) {
@@ -191,8 +184,8 @@ function ScanTable({ scans, repos }: { scans: any[]; repos: any[] }) {
 }
 
 export default function Scans() {
-  const { state: scanState, retry: retryScans } = useFetch(getScans, { pollMs: 8000 });
-  const { state: repoState, retry: retryRepos } = useFetch(getRepositories, { pollMs: 10000 });
+  const { state: scanState, retry: retryScans } = useFetch(getScans, { pollMs: 30000 });
+  const { state: repoState, retry: retryRepos } = useFetch(getRepositories, { pollMs: 30000 });
 
   if (scanState.status === 'loading' || repoState.status === 'loading') return <Loading label="Loading scans" />;
   

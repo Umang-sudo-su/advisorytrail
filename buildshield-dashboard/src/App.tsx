@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AuthProvider, useAuth } from './AuthContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -20,6 +20,8 @@ import {
   LoaderCircle,
 } from 'lucide-react';
 import { applyTheme, loadSettings, watchSystemTheme } from './settings';
+import { applyAppearance, cachedPrefs, setCachedPrefs } from './prefs';
+import { getSettings } from './api';
 
 const tabs = [
   { key: 'dashboard', label: 'Dashboard', hint: 'Overview & live queue', icon: LayoutDashboard },
@@ -36,13 +38,35 @@ type TabKey = (typeof tabs)[number]['key'];
 function AppContent() {
   const { token, user, initializing, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
+  const landingApplied = useRef(false);
 
   // Apply the saved palette for logged-out and logged-in states alike.
   useEffect(() => {
     const mode = loadSettings().theme;
     applyTheme(mode);
+    applyAppearance(cachedPrefs());
     return watchSystemTheme(mode);
   }, []);
+
+  // Personal preferences load once the session validates: landing page, density, motion.
+  useEffect(() => {
+    if (!token) {
+      landingApplied.current = false;
+      return;
+    }
+    if (!user || landingApplied.current) return;
+    landingApplied.current = true;
+
+    getSettings()
+      .then((settings) => {
+        setCachedPrefs(settings.user);
+        applyAppearance(settings.user);
+        setActiveTab(settings.user.landing_page);
+      })
+      .catch(() => {
+        // Preferences are optional; the default landing page stays in place.
+      });
+  }, [token, user]);
 
   if (initializing) {
     return (
@@ -67,8 +91,9 @@ function AppContent() {
     <div className="app">
       <aside className="sidebar">
         <div className="brand">
-          <img src="/assets/logo-mark.svg" alt="" className="brand-mark" />
-          <span className="brand-name">BuildShield</span>
+          <span className="brand-plate">
+            <img src="/assets/logo-sidebar.png" alt="BuildShield" className="brand-logo" />
+          </span>
         </div>
 
         <nav className="sidebar-nav" aria-label="Main">
