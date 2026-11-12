@@ -12,7 +12,7 @@ import {
   TriangleAlert,
   User,
 } from 'lucide-react';
-import { useAuth } from '../AuthContext';
+import { useAuth } from '../useAuth';
 import { loginUser, registerUser, verifyTwoFactor } from '../api';
 import './Login.css';
 

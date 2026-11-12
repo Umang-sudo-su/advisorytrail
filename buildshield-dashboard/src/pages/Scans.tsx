@@ -3,6 +3,7 @@ import { Search, TriangleAlert } from 'lucide-react';
 import { getScans, getRepositories } from '../api';
 import { useFetch } from '../useFetch';
 import { formatDateTime } from '../prefs';
+import type { Repository, ScanRow } from '../types';
 import StatusBadge from '../components/StatusBadge';
 import { Loading, ErrorState, EmptyState } from '../components/PageState';
 import LiveBadge from '../components/LiveBadge';
@@ -53,19 +54,19 @@ function FindingsCell({ status, count }: { status: string; count: number }) {
   return <span className="muted">0 Findings</span>;
 }
 
-function ScanTable({ scans, repos }: { scans: any[]; repos: any[] }) {
+function ScanTable({ scans, repos }: { scans: ScanRow[]; repos: Repository[] }) {
   const [filter, setFilter] = useState<Filter>('all');
   const [query, setQuery] = useState('');
 
   const repoMap = repos.reduce((acc, repo) => {
-    acc[repo.id] = repo.name;
+    acc[String(repo.id)] = repo.name;
     return acc;
   }, {} as Record<string, string>);
 
   const normalizedScans = scans.map(scan => ({
     id: scan.id,
     prTitle: scan.pr_title || scan.title || 'Manual Repository Security Audit',
-    repoName: repoMap[scan.repository_id] || scan.repository?.name || scan.repo_name || `Repository #${scan.repository_id || 'Unknown'}`,
+    repoName: repoMap[String(scan.repository_id)] || scan.repository?.name || scan.repo_name || `Repository #${scan.repository_id || 'Unknown'}`,
     baseSha: scan.base_commit_hash ? String(scan.base_commit_hash).substring(0, 7) : 'none',
     headSha: scan.commit_hash ? String(scan.commit_hash).substring(0, 7) : 'HEAD',
     engine: scan.scanner_engine || scan.engine || 'osv-scanner',

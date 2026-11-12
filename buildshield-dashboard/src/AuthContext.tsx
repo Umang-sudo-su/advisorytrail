@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import {
   clearStoredToken,
   getCurrentUser,
@@ -11,17 +11,7 @@ import {
 } from './api';
 import { stopLiveStream } from './live';
 
-interface AuthContextType {
-  token: string | null;
-  user: AuthUser | null;
-  initializing: boolean;
-  remember: boolean;
-  login: (token: string, remember?: boolean) => void;
-  setRemember: (remember: boolean) => void;
-  logout: () => void;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+import { AuthContext } from './useAuth';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(() => getStoredToken());
@@ -60,10 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
 
-    if (!token) {
-      setInitializing(false);
-      return;
-    }
+    if (!token) return;
 
     getCurrentUser()
       .then((profile) => {
@@ -99,8 +86,3 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within an AuthProvider');
-  return context;
-}

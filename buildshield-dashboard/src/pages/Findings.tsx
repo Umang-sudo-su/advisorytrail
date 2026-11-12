@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
 import { bulkUpdateFindingStatus, getFindings, updateFindingStatus } from '../api';
 import { useFetch } from '../useFetch';
-import type { Severity, ReviewStatus } from '../types';
+import type { FindingDetails, FindingRow, Severity, ReviewStatus } from '../types';
 import { Loading, ErrorState, EmptyState } from '../components/PageState';
 import { cachedPrefs } from '../prefs';
 
@@ -66,6 +66,18 @@ type FindingGroup = {
   advisories: Advisory[];
   reviewStatus: ReviewStatus;
 };
+
+/** The API stores advisory details as JSON; it may arrive as text or an object. */
+function parseDetails(raw: FindingRow['details']): FindingDetails {
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw) as FindingDetails;
+    } catch {
+      return {};
+    }
+  }
+  return raw ?? {};
+}
 
 function groupReviewStatus(advisories: Advisory[], reviews: Record<string, ReviewStatus>): ReviewStatus {
   const statuses = advisories.map((a) => reviews[a.id] ?? a.status);
@@ -209,7 +221,7 @@ function FindingDetail({
   );
 }
 
-function FindingsView({ findings, onReviewed }: { findings: any[]; onReviewed: () => void }) {
+function FindingsView({ findings, onReviewed }: { findings: FindingRow[]; onReviewed: () => void }) {
   const [change, setChange] = useState<string>('new');
   const [activeSeverities, setActiveSeverities] = useState<Severity[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -227,11 +239,7 @@ function FindingsView({ findings, onReviewed }: { findings: any[]; onReviewed: (
     const map = new Map<string, FindingGroup>();
 
     findings.forEach((f) => {
-      let details = f.details;
-      if (typeof details === 'string') {
-        try { details = JSON.parse(details); } catch { details = {}; }
-      }
-      details = details || {};
+      const details: FindingDetails = parseDetails(f.details);
 
       const pkgName = f.package_name || 'unknown';
       const pkgVer = f.package_version || '0.0.0';
@@ -242,7 +250,7 @@ function FindingsView({ findings, onReviewed }: { findings: any[]; onReviewed: (
       const advisory: Advisory = {
         id: String(f.id),
         advisoryId: f.osv_id || 'UNKNOWN',
-        summary: details.summary || '',
+        summary: details.summary ?? '',
         severity,
         status,
       };

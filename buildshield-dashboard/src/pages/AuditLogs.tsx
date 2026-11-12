@@ -59,7 +59,6 @@ export default function AuditLogs() {
 
   useEffect(() => {
     let cancelled = false;
-    setState((current) => ({ status: 'loading', logs: current.logs }));
 
     getAuditLogs({ category, search, limit: pageSize })
       .then((logs) => {

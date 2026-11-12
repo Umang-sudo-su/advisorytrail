@@ -47,7 +47,7 @@ import {
   type SessionInfo,
   type TwoFactorSetup,
 } from '../api';
-import { useAuth } from '../AuthContext';
+import { useAuth } from '../useAuth';
 import { ErrorState, Loading } from '../components/PageState';
 import { applyAppearance, cachedPrefs, formatDateTime, setCachedPrefs, TIME_ZONES } from '../prefs';
 import { applyTheme, loadSettings, saveSettings, watchSystemTheme, type ThemeMode } from '../settings';
@@ -318,13 +318,12 @@ export default function Settings() {
   const failedScan = useRef<Partial<ScanConfig> | null>(null);
   const scanTimer = useRef<number | null>(null);
 
-  const browser = useMemo(browserLabel, []);
+  const browser = useMemo(() => browserLabel(), []);
 
   const load = useCallback(async () => {
-    setLoading(true);
-    setLoadError('');
     try {
       const data = await getSettings();
+      setLoadError('');
       setPayload(data);
       setCachedPrefs(data.user);
       applyAppearance(data.user);
@@ -347,7 +346,14 @@ export default function Settings() {
   }, []);
 
   useEffect(() => {
-    void load();
+    // Deferred one microtask so the effect body never triggers a cascading render.
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (!cancelled) void load();
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [load]);
 
   useEffect(() => {

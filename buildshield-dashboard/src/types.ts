@@ -17,8 +17,60 @@ export interface Repository {
   name: string;
   branch: string;
   private?: boolean;
-  manifests: string[];
-  latestScanStatus: ScanStatus;
+  /** The API only reports manifests it actually found, so this can be absent. */
+  manifests?: string[];
+  latestScanStatus?: ScanStatus;
+}
+
+/** Raw `/api/v1/scans/` row, as serialized by the API. */
+export interface ScanRow {
+  id: number | string;
+  repository_id?: number;
+  repository?: { name?: string };
+  repo_name?: string;
+  pr_title?: string | null;
+  title?: string | null;
+  base_commit_hash?: string | null;
+  commit_hash?: string | null;
+  scanner_engine?: string;
+  engine?: string;
+  status: string;
+  findings?: unknown[];
+  findings_count?: number;
+  duration_seconds?: number | null;
+  created_at?: string | null;
+}
+
+/** Advisory detail JSON stored with each finding. */
+export interface FindingDetails {
+  summary?: string;
+  fixed_version?: string | null;
+  ecosystem?: string;
+  [key: string]: unknown;
+}
+
+/** Raw `/api/v1/findings/` row, as serialized by the API. */
+export interface FindingRow {
+  id: number | string;
+  osv_id?: string | null;
+  package_name?: string | null;
+  package_version?: string | null;
+  severity?: string | null;
+  status?: string | null;
+  details?: FindingDetails | string | null;
+}
+
+/** Raw `/api/v1/stats/` payload. */
+export interface DashboardResponse {
+  active_pr_scans?: number;
+  new_pr_vulnerabilities?: number;
+  clean_prs?: number;
+  vulnerable_repositories?: number;
+  failed_incomplete_scans?: number;
+  severity_breakdown?: Record<string, number>;
+  queue?: QueueItem[];
+  healthTrend?: TrendPoint[];
+  recentRepos?: RepoHealth[];
 }
 
 export interface Scan {

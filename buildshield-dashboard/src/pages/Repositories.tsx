@@ -16,6 +16,11 @@ const FINISHED_STATUSES = new Set([
   'partial',
 ]);
 
+/** Message from anything thrown by the API layer. */
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : '';
+}
+
 /** Accepts a github.com URL or an owner/repository slug. */
 function looksLikeRepository(value: string): boolean {
   const trimmed = value.trim();
@@ -175,7 +180,7 @@ export default function Repositories() {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [watching, retry]);
+  }, [watching, scanning, retry]);
 
   const openModal = () => {
     setSubmitError('');
@@ -217,9 +222,9 @@ export default function Repositories() {
         `${repo.name} connected${repo.private ? ' as a private repository' : ''} on branch ${repo.branch}.`,
       );
       retry();
-    } catch (err: any) {
+    } catch (err) {
       setStage('');
-      setSubmitError(err?.message || 'Could not connect that repository.');
+      setSubmitError(errorText(err) || 'Could not connect that repository.');
     } finally {
       setIsSubmitting(false);
     }
@@ -240,8 +245,8 @@ export default function Repositories() {
         setScanning((current) => ({ ...current, [key]: scan.id }));
       }
       retry();
-    } catch (err: any) {
-      setScanErrors((current) => ({ ...current, [key]: err?.message || 'Failed to trigger scan' }));
+    } catch (err) {
+      setScanErrors((current) => ({ ...current, [key]: errorText(err) || 'Failed to trigger scan' }));
     }
   };
 

@@ -19,3 +19,12 @@ __pycache__/
 dist/
 build/
 *.egg-info/
+
+# Test & tool caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.log
+
+# Editor / agent metadata
+.freebuff/

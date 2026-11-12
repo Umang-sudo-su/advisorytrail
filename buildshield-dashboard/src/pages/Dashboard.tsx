@@ -3,7 +3,7 @@ import { LoaderCircle, TriangleAlert, CircleCheck, GitPullRequest, ShieldAlert }
 import { getDashboard } from '../api';
 import { useFetch } from '../useFetch';
 import { panelRefreshMs } from '../prefs';
-import type { Severity, TrendPoint } from '../types';
+import type { DashboardResponse, Severity, TrendPoint } from '../types';
 import StatusBadge from '../components/StatusBadge';
 import LiveBadge from '../components/LiveBadge';
 import { Loading, ErrorState, EmptyState } from '../components/PageState';
@@ -117,7 +117,7 @@ function TrendChart({ points }: { points: TrendPoint[] }) {
   );
 }
 
-function DashboardView({ data }: { data: any }) {
+function DashboardView({ data }: { data: DashboardResponse }) {
   // Map backend uppercase/snake_case JSON structure to frontend format
   const rawSeverity = data?.severity_breakdown || {};
   const safeSeverity = {
@@ -190,7 +190,7 @@ function DashboardView({ data }: { data: any }) {
             <EmptyState title="No scans in the queue" hint="New pull requests appear here when they are scanned." />
           ) : (
             <ul className="queue">
-              {safeQueue.map((item: any) => {
+              {safeQueue.map((item) => {
                 const bad = item.status === 'failed' || item.status === 'timed_out';
                 return (
                   <li key={item.id} className="queue-row">
@@ -256,7 +256,7 @@ function DashboardView({ data }: { data: any }) {
           <h3 className="sub-title">Recently scanned repositories</h3>
           {safeRecentRepos.length > 0 ? (
             <ul className="repo-scores">
-              {safeRecentRepos.map((repo: any) => (
+              {safeRecentRepos.map((repo) => (
                 <li key={repo.name}>
                   <span>{repo.name}</span>
                   <span className={`badge ${scoreClass(repo.score)}`}>{repo.score.toFixed(1)}</span>

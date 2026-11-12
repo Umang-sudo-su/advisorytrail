@@ -1,8 +1,8 @@
 import type {
   Repository,
-  Scan,
-  Finding,
-  DashboardData,
+  ScanRow,
+  FindingRow,
+  DashboardResponse,
   PolicyData,
   SettingsPayload,
   UserPreferences,
@@ -17,14 +17,14 @@ import { getApiBase, getDefaultCommitRef } from './settings';
 export async function getRepositories(): Promise<Repository[]> {
   return await fetchFromAPI('/api/v1/repositories/');
 }
-export async function getScans(): Promise<Scan[]> {
+export async function getScans(): Promise<ScanRow[]> {
   return await fetchFromAPI('/api/v1/scans/');
 }
-export async function getFindings(): Promise<Finding[]> {
+export async function getFindings(): Promise<FindingRow[]> {
   return await fetchFromAPI('/api/v1/findings/');
 }
 
-export async function getDashboard(): Promise<DashboardData> {
+export async function getDashboard(): Promise<DashboardResponse> {
   // Your backend calls this 'stats' instead of 'dashboard'
   return await fetchFromAPI('/api/v1/stats/'); 
 }
