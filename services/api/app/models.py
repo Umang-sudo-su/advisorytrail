@@ -29,8 +29,11 @@ class Repository(Base):
     __tablename__ = "repositories"
 
     id = Column(Integer, primary_key=True, index=True)
+    # Full GitHub slug, e.g. "octocat/Hello-World"; scans and webhooks rely on it.
     name = Column(String, nullable=False)
     url = Column(String, nullable=False)
+    branch = Column(String, nullable=False, default="main")
+    is_private = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     scans = relationship("Scan", back_populates="repository", cascade="all, delete-orphan")

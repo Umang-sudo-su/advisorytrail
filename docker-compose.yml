@@ -74,7 +74,7 @@ services:
         [ -f /project/.env ] && . /project/.env
         set +a
         alembic upgrade head || echo '! Alembic migration skipped; the app reconciles the schema.'
-        exec uvicorn app.main:app --host 0.0.0.0 --port 8000
+        exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-server-header
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://buildshield_user:supersecurepassword@db:5432/buildshield_db}
       # Local SMTP sink; the wizard can override these in .env for real mail.

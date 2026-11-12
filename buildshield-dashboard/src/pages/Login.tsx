@@ -181,7 +181,7 @@ export default function Login() {
                     type="text"
                     inputMode="numeric"
                     autoComplete="one-time-code"
-                    placeholder="123456 or AAAA-BBBB"
+                    placeholder="6-digit code or recovery code"
                     value={code}
                     onChange={(event) => setCode(event.target.value)}
                     required
@@ -237,7 +237,7 @@ export default function Login() {
                   autoComplete="username"
                   autoCapitalize="none"
                   spellCheck={false}
-                  placeholder={isRegistering ? 'umang' : 'umang or umang@buildshield.dev'}
+                  placeholder="username"
                   value={identifier}
                   onChange={(event) => setIdentifier(event.target.value)}
                   required
@@ -260,7 +260,7 @@ export default function Login() {
                     autoComplete="email"
                     autoCapitalize="none"
                     spellCheck={false}
-                    placeholder="you@company.com"
+                    placeholder="Email address"
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     required

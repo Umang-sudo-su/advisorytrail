@@ -1347,7 +1347,7 @@ export default function Settings() {
                           className="form-input"
                           inputMode="numeric"
                           value={twoFactorCode}
-                          placeholder="123456"
+                          placeholder="6-digit code"
                           onChange={(event) => setTwoFactorCode(event.target.value)}
                         />
                       </div>
@@ -1452,7 +1452,7 @@ export default function Settings() {
                       className="form-input"
                       type="password"
                       autoComplete="off"
-                      placeholder="ghp_… (repo scope)"
+                      placeholder="GitHub token"
                       value={githubToken}
                       onChange={(event) => setGithubToken(event.target.value)}
                     />
@@ -1727,7 +1727,7 @@ export default function Settings() {
                       id="branches"
                       className="form-input"
                       value={branchesDraft}
-                      placeholder="main, release/*"
+                      placeholder="Comma-separated branch names"
                       onChange={(event) => setBranchesDraft(event.target.value)}
                     />
                   </div>
@@ -2047,7 +2047,7 @@ export default function Settings() {
                       className="form-input"
                       type="email"
                       value={memberEmail}
-                      placeholder="teammate@example.com"
+                      placeholder="Email address"
                       disabled={!isAdmin}
                       onChange={(event) => setMemberEmail(event.target.value)}
                       required
@@ -2194,7 +2194,7 @@ export default function Settings() {
                       id="token-name"
                       className="form-input"
                       value={tokenName}
-                      placeholder="CI pipeline"
+                      placeholder="What is this token for?"
                       maxLength={64}
                       onChange={(event) => setTokenName(event.target.value)}
                     />
@@ -2334,7 +2334,7 @@ export default function Settings() {
                         id="webhook-name"
                         className="form-input"
                         value={webhookName}
-                        placeholder="Scan events"
+                        placeholder="What is this endpoint for?"
                         maxLength={64}
                         onChange={(event) => setWebhookName(event.target.value)}
                       />
@@ -2348,7 +2348,7 @@ export default function Settings() {
                         className="form-input"
                         type="url"
                         value={webhookUrl}
-                        placeholder="https://example.com/hooks/buildshield"
+                        placeholder="Webhook destination URL"
                         onChange={(event) => setWebhookUrl(event.target.value)}
                       />
                     </div>

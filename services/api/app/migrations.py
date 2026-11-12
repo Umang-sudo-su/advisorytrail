@@ -30,6 +30,11 @@ STATEMENTS = [
     "CREATE INDEX IF NOT EXISTS ix_notifications_user_id ON notifications (user_id)",
     "CREATE INDEX IF NOT EXISTS ix_notifications_due ON notifications (status, scheduled_for)",
     "CREATE INDEX IF NOT EXISTS ix_sessions_user_active ON sessions (user_id, revoked_at)",
+
+    # Repository connection details validated against GitHub.
+    "ALTER TABLE repositories ADD COLUMN IF NOT EXISTS branch VARCHAR NOT NULL DEFAULT 'main'",
+    "ALTER TABLE repositories ADD COLUMN IF NOT EXISTS is_private BOOLEAN NOT NULL DEFAULT FALSE",
+    "CREATE INDEX IF NOT EXISTS ix_repositories_name_lower ON repositories (lower(name))",
 ]
 
 

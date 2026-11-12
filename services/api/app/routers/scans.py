@@ -6,8 +6,9 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.attributes import set_committed_value
 from typing import Optional, List
 
+from app.auth import get_current_user
 from app.database import get_db
-from app.models import Scan, ScanStatus, Finding, Repository
+from app.models import Scan, ScanStatus, Finding, Repository, User
 from app.schemas import ScanCreate, ScanResponse, FindingResponse
 from app.services.scanner import run_scan_with_limits
 
@@ -17,7 +18,8 @@ router = APIRouter(prefix="/api/v1/scans", tags=["Scans"])
 async def list_scans(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Retrieve a paginated list of all vulnerability scans."""
     # Count findings in SQL instead of loading them: a list entry only needs the number,
@@ -46,7 +48,8 @@ async def list_scans(
 async def trigger_manual_scan(
     payload: ScanCreate,
     background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Manually trigger an OSV vulnerability scan for a repository and commit hash."""
     repo_result = await db.execute(select(Repository).where(Repository.id == payload.repository_id))
@@ -84,7 +87,8 @@ async def get_scan_detail(
     severity: Optional[str] = Query(None, description="Filter findings by severity (e.g. HIGH, MODERATE, CRITICAL)"),
     limit: int = Query(50, ge=1, le=200, description="Number of findings to return"),
     offset: int = Query(0, ge=0, description="Offset for pagination of findings"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Retrieve detailed scan results with optional severity filtering and pagination."""
     scan_result = await db.execute(
@@ -112,7 +116,8 @@ async def get_scan_detail(
 @router.delete("/{scan_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_scan(
     scan_id: int,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Delete a specific vulnerability scan and its associated findings."""
     result = await db.execute(select(Scan).where(Scan.id == scan_id))

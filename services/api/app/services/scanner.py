@@ -1,4 +1,6 @@
 import asyncio
+import logging
+
 import httpx
 import base64
 from contextvars import ContextVar
@@ -21,6 +23,8 @@ from app.services.notifications import notify_scan_result
 
 # Set per scan so status updates use the connected token without threading it through every call.
 _GITHUB_TOKEN_VAR: ContextVar[str | None] = ContextVar("buildshield_github_token", default=None)
+
+logger = logging.getLogger(__name__)
 
 OSV_BATCH_QUERY_URL = "https://api.osv.dev/v1/querybatch"
 
@@ -68,6 +72,44 @@ def parse_poetry_lock(content: str):
     if current_pkg and current_ver:
         packages.append((current_pkg, current_ver, "PyPI"))
     return packages
+
+SEVERITY_ORDER = ("CRITICAL", "HIGH", "MEDIUM", "LOW")
+
+
+def normalize_severity(value) -> str:
+    """Maps OSV / GitHub Advisory severity text to one of the four UI levels."""
+    if not isinstance(value, str):
+        return "HIGH"
+    text = value.strip().upper()
+    if "CRITICAL" in text:
+        return "CRITICAL"
+    if "HIGH" in text:
+        return "HIGH"
+    if "MODERATE" in text or "MEDIUM" in text:
+        return "MEDIUM"
+    if "LOW" in text:
+        return "LOW"
+    return "HIGH"
+
+
+def advisory_severity(*sources) -> str:
+    """Picks the first usable severity: database_specific, affected entry, then CVSS."""
+    for source in sources:
+        if not source:
+            continue
+        database_specific = source.get("database_specific") or {}
+        severity = database_specific.get("severity")
+        if isinstance(severity, str) and severity.strip():
+            return normalize_severity(severity)
+        for affected in source.get("affected") or []:
+            severity = (affected.get("database_specific") or {}).get("severity")
+            if isinstance(severity, str) and severity.strip():
+                return normalize_severity(severity)
+        for entry in source.get("severity") or []:
+            if isinstance(entry, str):
+                return normalize_severity(entry)
+    return "HIGH"
+
 
 def is_queryable_version(version) -> bool:
     """OSV rejects the whole batch when a version is missing or not a plain version."""
@@ -125,16 +167,44 @@ async def fetch_manifest_from_github(owner_repo: str, commit_hash: str, token: s
 
     return None, None
 
-async def update_github_commit_status(owner_repo: str, commit_hash: str, state: str, description: str, target_url: str = None, token: str | None = None):
+async def update_github_commit_status(owner_repo: str, commit_hash: str, state: str, description: str, target_url: str = None, token: str | None = None) -> tuple[bool, str]:
+    """Posts a commit status and reports why it was not published.
+
+    Returns ``(published, reason)`` so the caller can log a refusal such as a token
+    without write access instead of dropping it silently.
+    """
     token = token or _GITHUB_TOKEN_VAR.get()
-    if not token or not owner_repo or "/" not in owner_repo: return
+    if not token:
+        return False, "no GitHub token is connected"
+    if not owner_repo or "/" not in owner_repo:
+        return False, "repository is not a GitHub owner/name"
+
     url = f"https://api.github.com/repos/{owner_repo}/statuses/{commit_hash}"
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
     payload = {"state": state, "description": description[:140], "context": "security/buildshield"}
-    if target_url: payload["target_url"] = target_url
+    if target_url:
+        payload["target_url"] = target_url
     try:
-        async with httpx.AsyncClient() as client: await client.post(url, headers=headers, json=payload, timeout=10.0)
-    except Exception: pass
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, headers=headers, json=payload, timeout=10.0)
+    except httpx.HTTPError as error:
+        return False, f"request to GitHub failed ({type(error).__name__})"
+
+    if response.status_code in {200, 201}:
+        return True, "published"
+    if response.status_code in {401, 403, 404}:
+        return False, (
+            f"GitHub refused it (HTTP {response.status_code}); the connected token needs "
+            f"write access to {owner_repo}"
+        )
+    return False, f"GitHub returned HTTP {response.status_code}"
+
+
+async def push_commit_status(scan_id: int, owner_repo: str, commit_hash: str, state: str, description: str, target_url: str) -> None:
+    """Publishes a commit status, logging any refusal with its reason."""
+    published, reason = await update_github_commit_status(owner_repo, commit_hash, state, description, target_url)
+    if not published:
+        logger.warning("[Scan %s] GitHub commit status not published: %s", scan_id, reason)
 
 _SCAN_SEMAPHORE: asyncio.Semaphore | None = None
 _SCAN_SEMAPHORE_SIZE = 0
@@ -185,7 +255,7 @@ async def run_osv_scan(scan_id: int):
             repository.url if repository else "",
         )
         if repo_identifier: 
-            await update_github_commit_status(repo_identifier, scan.commit_hash, "pending", "Scanning dependencies...", f"http://127.0.0.1:8000/api/v1/scans/{scan.id}")
+            await push_commit_status(scan_id, repo_identifier, scan.commit_hash, "pending", "Scanning dependencies...", f"http://127.0.0.1:8000/api/v1/scans/{scan.id}")
 
         try:
             # 1. Fetch Head and Base Manifests
@@ -217,7 +287,7 @@ async def run_osv_scan(scan_id: int):
                 scan.finished_at = datetime.now(timezone.utc)
                 await db.commit()
                 if repo_identifier:
-                    await update_github_commit_status(repo_identifier, commit_hash, "error", "BuildShield: no readable dependency manifest.", f"http://127.0.0.1:8000/api/v1/scans/{scan.id}")
+                    await push_commit_status(scan_id, repo_identifier, commit_hash, "error", "BuildShield: no readable dependency manifest.", f"http://127.0.0.1:8000/api/v1/scans/{scan.id}")
                 try:
                     await notify_scan_result(
                         db,
@@ -244,7 +314,7 @@ async def run_osv_scan(scan_id: int):
                 scan.finished_at = datetime.now(timezone.utc)
                 await db.commit()
                 if repo_identifier: 
-                    await update_github_commit_status(repo_identifier, commit_hash, "success", f"BuildShield: No dependencies found in {manifest_name}.", f"http://127.0.0.1:8000/api/v1/scans/{scan.id}")
+                    await push_commit_status(scan_id, repo_identifier, commit_hash, "success", f"BuildShield: No dependencies found in {manifest_name}.", f"http://127.0.0.1:8000/api/v1/scans/{scan.id}")
                 return
 
             # 3. Query OSV using the dynamically mapped ecosystem
@@ -255,7 +325,7 @@ async def run_osv_scan(scan_id: int):
                 scan.finished_at = datetime.now(timezone.utc)
                 await db.commit()
                 if repo_identifier:
-                    await update_github_commit_status(repo_identifier, commit_hash, "success", f"BuildShield: no pinned dependency versions found in {manifest_name}.", f"http://127.0.0.1:8000/api/v1/scans/{scan.id}")
+                    await push_commit_status(scan_id, repo_identifier, commit_hash, "success", f"BuildShield: no pinned dependency versions found in {manifest_name}.", f"http://127.0.0.1:8000/api/v1/scans/{scan.id}")
                 return
 
             def extract_fixed(data, package: str):
@@ -267,21 +337,10 @@ async def run_osv_scan(scan_id: int):
                                     if "fixed" in event: return event["fixed"]
                 return None
 
-            async def resolve_fixed_version(client, vuln, package: str):
-                fixed = extract_fixed(vuln, package)
-                if fixed:
-                    return fixed
-                try:
-                    detail_resp = await client.get(f"https://api.osv.dev/v1/vulns/{vuln.get('id')}", timeout=10.0)
-                    if detail_resp.status_code == 200:
-                        return extract_fixed(detail_resp.json(), package)
-                except httpx.HTTPError:
-                    pass
-                return None
-
             total_findings = 0
             blocking_new = 0
             lookups = asyncio.Semaphore(8)
+            seen: set[tuple[str, str, str]] = set()
 
             async with httpx.AsyncClient() as client:
                 # OSV caps batch size, so query in chunks and keep result order aligned.
@@ -310,30 +369,51 @@ async def run_osv_scan(scan_id: int):
                     for idx, res in enumerate(results):
                         pkg_name, pkg_version, pkg_eco = chunk[idx]
                         for vuln in res.get("vulns", []):
-                            severity_list = vuln.get("database_specific", {}).get("severity") or vuln.get("severity", [])
-                            severity_str = severity_list.upper() if isinstance(severity_list, str) else "HIGH"
-                            matches.append((vuln, pkg_name, pkg_version, pkg_eco, severity_str))
+                            matches.append((vuln, pkg_name, pkg_version, pkg_eco))
 
-                    async def lookup(item):
+                    # The batch endpoint only returns ids; fetch each advisory once so the
+                    # finding carries its real severity, summary and fixed version.
+                    async def load_advisory(item):
+                        advisory_id = item[0].get("id")
+                        if not advisory_id:
+                            return {}
                         async with lookups:
-                            return await resolve_fixed_version(client, item[0], item[1])
+                            try:
+                                detail_response = await client.get(
+                                    f"https://api.osv.dev/v1/vulns/{advisory_id}", timeout=10.0
+                                )
+                                if detail_response.status_code == 200:
+                                    return detail_response.json()
+                            except httpx.HTTPError:
+                                pass
+                        return {}
 
-                    # Advisory detail lookups are independent, so run them together.
-                    fixed_versions = await asyncio.gather(*(lookup(item) for item in matches))
+                    advisories = await asyncio.gather(*(load_advisory(item) for item in matches))
 
-                    for (vuln, pkg_name, pkg_version, pkg_eco, severity_str), fixed_version in zip(matches, fixed_versions):
+                    for (vuln, pkg_name, pkg_version, pkg_eco), advisory in zip(matches, advisories):
+                        vuln_id = vuln.get("id", "UNKNOWN")
+                        dedupe_key = (pkg_name, pkg_version, vuln_id)
+                        if dedupe_key in seen:
+                            continue
+                        seen.add(dedupe_key)
+
+                        detail = advisory or vuln
+                        fixed_version = extract_fixed(detail, pkg_name) or extract_fixed(vuln, pkg_name)
+                        severity_str = advisory_severity(detail, vuln)
                         is_new = (pkg_name, pkg_version) not in base_pkg_versions
+
                         db.add(Finding(
                             scan_id=scan.id,
-                            osv_id=vuln.get("id", "UNKNOWN"),
+                            osv_id=vuln_id,
                             package_name=pkg_name,
                             package_version=pkg_version,
                             severity=severity_str,
                             details={
-                                "summary": vuln.get("summary", "No summary provided"),
+                                "summary": detail.get("summary") or vuln.get("summary") or "No summary provided",
                                 "ecosystem": pkg_eco,
                                 "fixed_version": fixed_version,
-                                "is_new": is_new
+                                "is_new": is_new,
+                                "aliases": detail.get("aliases") or [],
                             }
                         ))
                         total_findings += 1
@@ -356,7 +436,7 @@ async def run_osv_scan(scan_id: int):
             await db.commit()
 
             if repo_identifier:
-                await update_github_commit_status(repo_identifier, scan.commit_hash, final_state, status_desc, f"http://127.0.0.1:8000/api/v1/scans/{scan.id}")
+                await push_commit_status(scan_id, repo_identifier, scan.commit_hash, final_state, status_desc, f"http://127.0.0.1:8000/api/v1/scans/{scan.id}")
 
             try:
                 await notify_scan_result(
@@ -383,7 +463,7 @@ async def run_osv_scan(scan_id: int):
             await db.commit()
             print(f"[Scan {scan_id}] failed: {e}")
             if repo_identifier:
-                await update_github_commit_status(repo_identifier, commit_hash, "error", f"BuildShield scan failed: {str(e)[:50]}", f"http://127.0.0.1:8000/api/v1/scans/{scan_id}")
+                await push_commit_status(scan_id, repo_identifier, commit_hash, "error", f"BuildShield scan failed: {str(e)[:50]}", f"http://127.0.0.1:8000/api/v1/scans/{scan_id}")
 
             try:
                 await notify_scan_result(

@@ -24,6 +24,7 @@ from app.schemas import UserCreate, UserResponse
 from app.services import sessions as session_service
 from app.services import totp
 from app.services.preferences import add_audit
+from app.services.rate_limit import enforce
 from app.services.secret_box import open_sealed, seal
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Auth"])
@@ -73,7 +74,8 @@ async def _session_token(db: AsyncSession, user: User, request: Request) -> str:
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-async def register(user: UserCreate, db: AsyncSession = Depends(get_db)):
+async def register(user: UserCreate, request: Request, db: AsyncSession = Depends(get_db)):
+    enforce(f"register:{_client_ip(request) or 'unknown'}", limit=5, window_seconds=3600)
     username_query = await db.execute(select(User.id).where(User.username == user.username))
     if username_query.scalars().first():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="That username is already registered")
@@ -101,6 +103,13 @@ async def login(
 ):
     # The form field is called "username" but accepts either a username or an email.
     identifier = form_data.username.strip()
+    # Slows down password guessing without locking a legitimate user out for long.
+    enforce(
+        f"login:{_client_ip(request) or 'unknown'}:{identifier.lower()}",
+        limit=10,
+        window_seconds=300,
+        detail="Too many sign-in attempts. Wait a few minutes and try again.",
+    )
     query = select(User).where(or_(User.username == identifier, User.email == identifier))
     result = await db.execute(query)
     user = result.scalars().first()
@@ -143,6 +152,13 @@ async def verify_two_factor(
 
     if claims.get("purpose") != "2fa":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This is not a 2FA challenge.")
+
+    enforce(
+        f"2fa:{_client_ip(request) or 'unknown'}:{claims.get('sub')}",
+        limit=10,
+        window_seconds=300,
+        detail="Too many verification attempts. Wait a few minutes and try again.",
+    )
 
     result = await db.execute(select(User).where(User.username == claims.get("sub")))
     user = result.scalars().first()

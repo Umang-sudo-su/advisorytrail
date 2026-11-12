@@ -4,15 +4,15 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 
+from app.config import settings
 from app.main import app as fastapi_app
-from app.routers import webhooks
 
-SECRET = "test-secret"
 URL = "/api/v1/webhooks/github"
 client = TestClient(fastapi_app)
 
-# Update your SECRET variable to this:
-SECRET = os.getenv("GITHUB_WEBHOOK_SECRET", "my_super_secure_local_testing_secret")
+# Sign with the secret the app actually loaded (env, .env or default), so the test
+# does not depend on a particular deployment configuration.
+SECRET = os.getenv("GITHUB_WEBHOOK_SECRET") or settings.GITHUB_WEBHOOK_SECRET
 
 
 

@@ -1587,11 +1587,71 @@ p {
 }
 
 .modal-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
   padding: 0.65rem 0.8rem;
   border-radius: var(--radius-xs);
   background: var(--danger-container);
   color: var(--on-bad);
   font-size: 0.84rem;
+}
+
+.modal-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.modal-stage {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.form-hint {
+  color: var(--muted);
+  font-size: 0.74rem;
+  line-height: 1.35;
+}
+
+.page-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 1rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface-container-high);
+  color: var(--text);
+  font-size: 0.86rem;
+}
+
+.page-banner > svg {
+  color: var(--ok);
+  flex: none;
+}
+
+.banner-close {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.banner-close:hover {
+  background: var(--surface-container);
+  color: var(--text);
 }
 
 .form-field {
@@ -1743,4 +1803,45 @@ p {
     width: 100%;
     max-width: none;
   }
+}
+
+.advisory-list {
+  list-style: none;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.advisory-item {
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--outline, rgba(127, 127, 127, 0.25));
+  border-radius: var(--radius-xs);
+  background: var(--surface-container);
+  display: grid;
+  gap: 0.45rem;
+}
+
+.advisory-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+}
+
+.advisory-summary {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.bulk-review {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.2rem 0 0.4rem;
+  font-size: 0.8rem;
 }

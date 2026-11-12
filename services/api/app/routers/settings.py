@@ -30,6 +30,7 @@ from app.models import (
     WebhookEndpoint,
     WorkspaceMember,
 )
+from app.services.net_guard import validate_public_url
 from app.services.secret_box import seal
 from app.services import github_auth, mailer
 from app.services import notifications as notification_service
@@ -770,13 +771,13 @@ async def revoke_token(
 
 
 def _validate_webhook_url(url: str) -> str:
-    parsed = urlparse(url)
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+    try:
+        return validate_public_url(url)
+    except ValueError as error:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Webhook URL must be an absolute http(s) URL.",
+            detail=str(error),
         )
-    return url
 
 
 def _validate_events(events: List[str]) -> List[str]:

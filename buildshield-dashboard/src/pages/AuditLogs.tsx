@@ -136,7 +136,7 @@ export default function AuditLogs() {
               <Search size={17} aria-hidden="true" />
               <input
                 type="search"
-                placeholder="Search actor, action or resource..."
+                placeholder="Search actor, action or resource"
                 aria-label="Search audit trail"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}

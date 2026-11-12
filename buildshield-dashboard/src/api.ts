@@ -390,10 +390,39 @@ export async function getCurrentUser(): Promise<AuthUser> {
     return await fetchFromAPI('/api/v1/auth/me');
 }
 
-export async function addRepository(data: { name: string; url: string; branch: string }) {
+export interface ConnectedRepository {
+    id: number;
+    name: string;
+    url: string;
+    branch: string;
+    private: boolean;
+    created_at: string;
+}
+
+export async function addRepository(data: { name: string; url: string; branch: string }): Promise<ConnectedRepository> {
     return await fetchFromAPI('/api/v1/repositories/', {
         method: 'POST',
         body: JSON.stringify(data),
+    });
+}
+
+export async function updateFindingStatus(
+    findingId: string | number,
+    status: 'OPEN' | 'DISMISSED' | 'FALSE_POSITIVE',
+): Promise<{ id: number; status: string }> {
+    return await fetchFromAPI(`/api/v1/findings/${findingId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+    });
+}
+
+export async function bulkUpdateFindingStatus(
+    findingIds: Array<string | number>,
+    status: 'OPEN' | 'DISMISSED' | 'FALSE_POSITIVE',
+): Promise<{ updated: number; status: string; ids: number[] }> {
+    return await fetchFromAPI('/api/v1/findings/bulk', {
+        method: 'PATCH',
+        body: JSON.stringify({ ids: findingIds, status }),
     });
 }
 

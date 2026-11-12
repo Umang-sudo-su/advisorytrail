@@ -16,6 +16,7 @@ export interface Repository {
   id: string;
   name: string;
   branch: string;
+  private?: boolean;
   manifests: string[];
   latestScanStatus: ScanStatus;
 }

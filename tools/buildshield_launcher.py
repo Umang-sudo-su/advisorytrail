@@ -793,6 +793,40 @@ def cmd_status(args: argparse.Namespace) -> int:
     return 0 if healthy and http_ok(api_health_url()) else 1
 
 
+def cmd_reset_data(args: argparse.Namespace) -> int:
+    title("BuildShield - resetting working data")
+    ensure_docker()
+
+    warn(
+        "This deletes every user, repository, scan, finding, audit entry, API token, "
+        "session, notification and webhook."
+    )
+    info("The .env configuration, the schema and the GitHub connection are kept.")
+
+    if not args.yes and not confirm("Delete all data and recreate the admin account?"):
+        warn("Cancelled.")
+        return 1
+
+    info("Running the reset inside the API container...")
+    result = compose(
+        "exec", "-T", "api", "python", "-m", "app.reset_data", "--yes",
+        timeout=None,
+        capture=False,
+    )
+    if result.returncode != 0:
+        raise LauncherError(
+            "The data reset failed.",
+            [
+                "The API container must be running: ./buildshield start",
+                "Then retry: ./buildshield reset-data",
+            ],
+        )
+
+    ok("All working data removed; the admin password is printed above")
+    info("Sign in, then connect a repository from the Repositories page.")
+    return 0
+
+
 def cmd_open(args: argparse.Namespace) -> int:
     url = dashboard_url()
     info(f"Opening {url}")
@@ -1071,6 +1105,10 @@ def build_parser() -> argparse.ArgumentParser:
     install.add_argument("--dry-run", action="store_true")
     install.set_defaults(func=cmd_install_docker)
 
+    reset = subparsers.add_parser("reset-data", help="delete all data and recreate the admin")
+    reset.add_argument("--yes", action="store_true", help="do not ask for confirmation")
+    reset.set_defaults(func=cmd_reset_data)
+
     open_cmd = subparsers.add_parser("open", help="open the dashboard in a browser")
     open_cmd.set_defaults(func=cmd_open)
 
@@ -1103,7 +1141,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             pass
 
     parser = build_parser()
-    commands = {"start", "stop", "restart", "status", "logs", "monitor", "doctor", "install-docker", "open"}
+    commands = {
+        "start", "stop", "restart", "status", "logs", "monitor", "doctor",
+        "install-docker", "reset-data", "open",
+    }
     raw = list(sys.argv[1:] if argv is None else argv)
 
     if not raw:

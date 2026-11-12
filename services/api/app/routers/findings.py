@@ -2,10 +2,11 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from app.auth import get_current_user
 from app.database import get_db
-from app.models import Finding, AuditLog
+from app.models import Finding, AuditLog, User
 from app.schemas import FindingResponse
 
 router = APIRouter(prefix="/api/v1/findings", tags=["Findings"])
@@ -13,8 +14,55 @@ router = APIRouter(prefix="/api/v1/findings", tags=["Findings"])
 class FindingUpdate(BaseModel):
     status: str
 
+
+class BulkFindingUpdate(BaseModel):
+    ids: List[int] = Field(min_length=1, max_length=200)
+    status: str
+
+@router.patch("/bulk")
+async def bulk_update_finding_status(
+    payload: BulkFindingUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Applies one review status to every advisory of a package in a single call."""
+    valid_statuses = ["OPEN", "DISMISSED", "FALSE_POSITIVE"]
+    status_value = payload.status.upper()
+    if status_value not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Allowed: {valid_statuses}")
+
+    # Only ids that still exist are touched, so a stale dashboard cannot 404 the batch.
+    result = await db.execute(select(Finding).where(Finding.id.in_(payload.ids)))
+    findings = list(result.scalars().all())
+    if not findings:
+        raise HTTPException(status_code=404, detail="None of those findings exist any more.")
+
+    for finding in findings:
+        finding.status = status_value
+
+    db.add(AuditLog(
+        actor=current_user.email or current_user.username,
+        action="FINDINGS_BULK_REVIEWED",
+        resource_id=f"{len(findings)} advisories",
+        justification=f"All advisories of a package set to {status_value}",
+        category="Finding Reviews & Dismissals",
+    ))
+    await db.commit()
+
+    return {
+        "updated": len(findings),
+        "status": status_value,
+        "ids": [finding.id for finding in findings],
+    }
+
+
 @router.patch("/{finding_id}")
-async def update_finding_status(finding_id: int, payload: FindingUpdate, db: AsyncSession = Depends(get_db)):
+async def update_finding_status(
+    finding_id: int,
+    payload: FindingUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     valid_statuses = ["OPEN", "DISMISSED", "FALSE_POSITIVE"]
     if payload.status not in valid_statuses:
         raise HTTPException(status_code=400, detail=f"Invalid status. Allowed: {valid_statuses}")
@@ -29,7 +77,7 @@ async def update_finding_status(finding_id: int, payload: FindingUpdate, db: Asy
     
     # --- AUDIT LOG ENTRY ---
     db.add(AuditLog(
-        actor="umang@buildshield.dev",
+        actor=current_user.email or current_user.username,
         action="FINDING_DISMISSED" if payload.status in ["DISMISSED", "FALSE_POSITIVE"] else "FINDING_STATUS_UPDATED",
         resource_id=f"vuln-{finding.osv_id}",
         justification=f"Status changed to {payload.status}",
@@ -48,7 +96,8 @@ async def list_findings(
     finding_status: Optional[str] = Query(None, alias="status", description="Filter by review status"),
     limit: Optional[int] = Query(None, ge=1, le=5000, description="Optional cap for large result sets"),
     offset: int = Query(0, ge=0, description="Rows to skip when paging"),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     query = select(Finding).order_by(Finding.id)
 

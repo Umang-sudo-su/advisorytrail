@@ -76,5 +76,10 @@ export function useFetch<T>(loader: () => Promise<T>, options: FetchOptions = {}
     setAttempt((n) => n + 1);
   }, []);
 
-  return { state, retry };
+  // Quiet re-fetch that leaves the current data (and any UI state) in place.
+  const refresh = useCallback(() => {
+    refreshRef.current?.();
+  }, []);
+
+  return { state, retry, refresh };
 }

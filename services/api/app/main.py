@@ -1,10 +1,11 @@
 from app.routers import scans, stats  # <-- Add stats here
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from starlette.middleware.gzip import GZipMiddleware
 from app.routers import repositories, scans, webhooks, auth
 from app.routers import findings
@@ -22,6 +23,10 @@ from app.routers import repositories, scans, webhooks
 
 # Surface scheduler and notification activity in container logs.
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
+logger = logging.getLogger(__name__)
+
+# No API request needs a larger body; refusing them early keeps memory bounded.
+MAX_BODY_BYTES = 2 * 1024 * 1024
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -59,6 +64,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.middleware("http")
+async def harden_responses(request: Request, call_next):
+    """Security headers, no-store for API data and a request body size cap."""
+    declared = request.headers.get("content-length")
+    if declared and declared.isdigit() and int(declared) > MAX_BODY_BYTES:
+        return JSONResponse(status_code=413, content={"detail": "Request body is too large."})
+
+    response = await call_next(request)
+
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    response.headers["X-Permitted-Cross-Domain-Policies"] = "none"
+
+    # Signed-in responses carry account and repository data; browsers and proxies
+    # must never cache them.
+    if request.url.path.startswith("/api/v1"):
+        response.headers.setdefault("Cache-Control", "no-store")
+
+    return response
+
+
 app.include_router(repositories.router)
 app.include_router(scans.router)
 app.include_router(webhooks.router) # Newly added webhook router
@@ -75,5 +104,7 @@ async def health_check(db: AsyncSession = Depends(get_db)):
     try:
         await db.execute(text("SELECT 1"))
         return {"status": "healthy", "database": "connected"}
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Database connection failed: {str(e)}")
+    except Exception:
+        # The exception text can contain the DSN or credentials, so it stays in the log.
+        logger.exception("Health check could not reach the database")
+        raise HTTPException(status_code=503, detail="Database connection failed")
