@@ -18,3 +18,13 @@ cd buildshield
 docker compose up --build
 ```
 
+
+That single command:
+
+1. starts PostgreSQL and the MailHog mail catcher,
+2. runs the **setup wizard**, which asks for your GitHub token, webhook URL and admin
+   account, writes `.env` for you, generates the signing and webhook secrets, creates
+   the first admin user and, when it can, registers the GitHub webhook,
+3. applies database migrations and starts the API,
+4. builds and serves the dashboard.
+
