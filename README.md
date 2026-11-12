@@ -75,5 +75,27 @@ Create a .env entry or export the variable before starting:
 bash
 WEB_PORT=8080 API_PORT=8081 docker compose up --build
 
+## GitHub setup
+
+### 1. Personal access token (used to read manifests and set commit statuses)
+
+1. Open <https://github.com/settings/tokens>.
+2. *Generate new token (classic)*.
+3. Scopes: repo (read repository contents) and admin:repo_hook (only needed so the
+   wizard can create the webhook for you).
+4. Copy the token — it starts with ghp_ and is shown once.
+
+Fine-grained tokens work too: grant *Contents: Read* and *Webhooks: Read and write*
+for the repository you want to scan.
+
+The token is stored in .env at the repository root (never committed) and can also be
+changed later in the dashboard under *Settings → GitHub Integration*.
+
+### 2. Webhook (how GitHub tells BuildShield about pull requests)
+
+If you provide a *publicly reachable* URL during setup (a server domain or a tunnel),
+the wizard creates the webhook for you. Otherwise add it by hand:
+
+
 
 
