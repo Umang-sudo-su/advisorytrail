@@ -138,3 +138,25 @@ bash
 cd buildshield-dashboard
 npm install
 npm run dev              # http://localhost:5173, expects the API on :8000
+
+## Troubleshooting
+
+*env file ...\services\api\.env not found* — this happened with older compose files
+that required services/api/.env. The stack now reads .env from the repository root
+and creates it on first run; update docker-compose.yml and run
+docker compose up --build again.
+
+*The wizard did not prompt* — you ran detached (-d) or the terminal has no TTY. See
+If you run it detached above.
+
+*Dashboard shows "Cannot reach the BuildShield API"* — check docker compose ps; the
+api container waits for setup to finish. docker compose logs api shows migrations
+and startup errors.
+
+*Port already in use* — set WEB_PORT, API_PORT or DB_PORT in .env and restart.
+
+*Reset everything, including the database* —
+
+bash
+docker compose down -v      # deletes the database volume
+docker compose up --build
