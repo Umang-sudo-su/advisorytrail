@@ -67,3 +67,13 @@ docker compose run --rm -e BUILDSHIELD_RECONFIGURE=1 setup
 
 Setup runs on every docker compose up but exits immediately when .env is complete,
 so it never blocks or overwrites your values.
+
+### Change ports
+
+Create a .env entry or export the variable before starting:
+
+bash
+WEB_PORT=8080 API_PORT=8081 docker compose up --build
+
+
+
