@@ -52,3 +52,18 @@ guided through GitHub instead, run the wizard on its own first:
 bash
 docker compose run --rm setup          # interactive, asks for token/webhook/admin
 docker compose up -d
+
+### Re-running the setup wizard
+
+Configuration already exists? Reconfigure deliberately:
+
+bash
+# Windows PowerShell / CMD
+docker compose run --rm -e BUILDSHIELD_RECONFIGURE=1 setup
+
+# macOS / Linux
+docker compose run --rm -e BUILDSHIELD_RECONFIGURE=1 setup
+
+
+Setup runs on every docker compose up but exits immediately when .env is complete,
+so it never blocks or overwrites your values.
