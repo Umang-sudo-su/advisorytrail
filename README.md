@@ -119,3 +119,15 @@ send real mail, provide SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD,
 SMTP_SECURITY (starttls, ssl or none) and SMTP_FROM.
 
 
+## Running without Docker (development)
+
+Backend:
+
+bash
+cd services/api
+python -m venv .venv
+# Windows: .venv\Scripts\activate    macOS/Linux: source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env     # then fill in SECRET_KEY and GITHUB_* values
+alembic upgrade head
+uvicorn app.main:app --reload
