@@ -131,3 +131,10 @@ pip install -r requirements.txt
 cp .env.example .env     # then fill in SECRET_KEY and GITHUB_* values
 alembic upgrade head
 uvicorn app.main:app --reload
+
+Dashboard:
+
+bash
+cd buildshield-dashboard
+npm install
+npm run dev              # http://localhost:5173, expects the API on :8000
