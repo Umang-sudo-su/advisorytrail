@@ -38,3 +38,17 @@ That single command:
 
 The wizard prints the admin password once, at the end of its output. Keep it.
 
+The wizard prints the admin password once, at the end of its output. Keep it.
+
+> First run takes a few minutes: the API image installs osv-scanner and the dashboard
+> runs a Node build. Later starts are seconds.
+
+### If you run it detached
+
+docker compose up -d has no terminal to prompt on, so the wizard generates secure
+defaults and prints the admin password in the logs (docker compose logs setup). To be
+guided through GitHub instead, run the wizard on its own first:
+
+bash
+docker compose run --rm setup          # interactive, asks for token/webhook/admin
+docker compose up -d
