@@ -1,17 +1,10 @@
-# Secrets must never be baked into the image; the runtime supplies them via Compose.
 .env
 .env.*
 !.env.example
-
-# Local Python artefacts
-__pycache__/
-*.py[cod]
-.pytest_cache/
-.venv/
-venv/
-*.egg-info/
-
-# VCS and editor noise
-.git/
-.gitignore
+__pycache__
+*.pyc
+.pytest_cache
+.venv
+venv
+.git
 .DS_Store

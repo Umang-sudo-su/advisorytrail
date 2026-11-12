@@ -1,0 +1,19 @@
+#!/usr/bin/env sh
+# BuildShield launcher wrapper for Linux, macOS and other Unix-like systems.
+# Usage: ./buildshield start | stop | restart | status | monitor | doctor ...
+
+set -e
+
+DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+
+if command -v python3 >/dev/null 2>&1; then
+    PYTHON=python3
+elif command -v python >/dev/null 2>&1; then
+    PYTHON=python
+else
+    echo "BuildShield launcher needs Python 3, but it was not found on PATH." >&2
+    echo "Install it from https://www.python.org/downloads/ and try again." >&2
+    exit 1
+fi
+
+exec "$PYTHON" "$DIR/tools/buildshield_launcher.py" "$@"
