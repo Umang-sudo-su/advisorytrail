@@ -106,3 +106,16 @@ the wizard creates the webhook for you. Otherwise add it by hand:
 
 GitHub cannot call localhost, so a tunnel or a deployed host is required for live
 webhook deliveries. Manual scans from the dashboard work without a webhook.
+
+## Configuration reference
+
+All settings live in .env at the repository root; .env.example documents every key.
+The wizard writes: SECRET_KEY, GITHUB_WEBHOOK_SECRET, GITHUB_TOKEN,
+GITHUB_REPOSITORY, PUBLIC_BASE_URL, the optional SMTP_* block, and the admin
+credentials (printed, not stored).
+
+Email: by default every message is captured by MailHog at <http://localhost:8025>. To
+send real mail, provide SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD,
+SMTP_SECURITY (starttls, ssl or none) and SMTP_FROM.
+
+
