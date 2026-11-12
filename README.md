@@ -96,6 +96,18 @@ changed later in the dashboard under *Settings → GitHub Integration*.
 If you provide a *publicly reachable* URL during setup (a server domain or a tunnel),
 the wizard creates the webhook for you. Otherwise add it by hand:
 
+1. Repository → *Settings → Webhooks → Add webhook*.
+2. *Payload URL*: https://<your-domain>/api/v1/webhooks/github
+   (for local testing, expose the API with ngrok http 8000 and use the ngrok URL).
+3. *Content type*: application/json.
+4. *Secret*: the value printed by the wizard (GITHUB_WEBHOOK_SECRET in .env).
+5. *Events: *Pull requests and Pushes.
+6. Save — GitHub sends a ping; BuildShield replies pong.
+
+GitHub cannot call localhost, so a tunnel or a deployed host is required for live
+webhook deliveries. Manual scans from the dashboard work without a webhook.
+
+
 
 
 
