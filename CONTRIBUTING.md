@@ -83,3 +83,11 @@ token without pull access created a card that could never be scanned.
 2. Keep the change focused; split unrelated refactors into their own pull request.
 3. Describe the behaviour change and the checks you ran.
 4. Link the issue it closes, if there is one.
+
+## Contributers
+1. Umang-sudo-su
+2. Saksham-bot-design
+3. shraddha-x
+4. ayushmansarkar5-stack
+5. Shivam-22-su
+6. Urshita-M
