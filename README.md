@@ -28,3 +28,13 @@ That single command:
 3. applies database migrations and starts the API,
 4. builds and serves the dashboard.
 
+
+| Service | URL |
+| --- | --- |
+| Dashboard | http://localhost:3000 |
+| API docs (Swagger) | http://localhost:8000/docs |
+| Mail inbox (MailHog) | http://localhost:8025 |
+| PostgreSQL | `localhost:5433` |
+
+The wizard prints the admin password once, at the end of its output. Keep it.
+
