@@ -11,3 +11,10 @@ Works the same on Windows (PowerShell or CMD), macOS and Linux. You only need
 [Docker Desktop](https://www.docker.com/products/docker-desktop/) or Docker Engine with
 the Compose plugin.
 
+
+```bash
+git clone <this-repository> buildshield
+cd buildshield
+docker compose up --build
+```
+
