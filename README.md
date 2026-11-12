@@ -160,3 +160,14 @@ and startup errors.
 bash
 docker compose down -v      # deletes the database volume
 docker compose up --build
+
+## Secrets & environment
+
+.env is gitignored and never baked into an image (.dockerignore excludes it). The
+wizard generates SECRET_KEY and GITHUB_WEBHOOK_SECRET with secrets.token_hex /
+token_urlsafe, stores .env with mode 0600 on POSIX, and prints the admin password
+exactly once. A pre-commit guard can block staged .env files and credential-shaped
+strings; enable it once per clone with:
+
+bash
+git config core.hooksPath .githooks
