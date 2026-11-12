@@ -23,7 +23,7 @@ REPO_RE = re.compile(r"^[A-Za-z0-9._-]{1,100}$")
 REQUEST_HEADERS = {
     "Accept": "application/vnd.github+json",
     "X-GitHub-Api-Version": "2022-11-28",
-    "User-Agent": "BuildShield",
+    "User-Agent": "AdvisoryTrail",
 }
 
 
@@ -155,7 +155,7 @@ async def lookup(full_name: str, token: Optional[str], account: Optional[str] = 
         ) from error
     except httpx.RequestError as error:
         raise RepositoryValidationError(
-            "BuildShield could not reach GitHub. Check the server's internet connection.",
+            "AdvisoryTrail could not reach GitHub. Check the server's internet connection.",
             502,
         ) from error
 
@@ -196,7 +196,7 @@ async def branch_exists(full_name: str, branch: str, token: Optional[str]) -> bo
             response = await client.get(url, headers=_headers(token))
     except httpx.RequestError as error:
         raise RepositoryValidationError(
-            "BuildShield could not reach GitHub to verify the branch.",
+            "AdvisoryTrail could not reach GitHub to verify the branch.",
             502,
         ) from error
 

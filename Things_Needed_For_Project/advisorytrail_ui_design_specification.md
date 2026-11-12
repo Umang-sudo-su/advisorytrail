@@ -1,15 +1,15 @@
-# BuildShield — Web Dashboard UI Design & Component Specification
+# AdvisoryTrail — Web Dashboard UI Design & Component Specification
 
-> **Document Purpose:** Comprehensive frontend UI architecture, Material 3 Expressive design system specification, and marker-by-marker functional reference for the BuildShield React + TypeScript web dashboard (`apps/web/`).
+> **Document Purpose:** Comprehensive frontend UI architecture, Material 3 Expressive design system specification, and marker-by-marker functional reference for the AdvisoryTrail React + TypeScript web dashboard (`apps/web/`).
 >
 > **Target Audience:** Member 2 (Frontend Developer), Member 1 (Umang — Backend & Database Lead), and all teammates integrating scanner, risk-engine, and GitHub Check Run workflows.
 >
-> **Repository Location:** Save as `docs/UI_DESIGN.md` in the BuildShield monorepo.
+> **Repository Location:** Save as `docs/UI_DESIGN.md` in the AdvisoryTrail monorepo.
 
 
 ## 1. Design System & Visual Language (Material 3 Expressive)
 
-BuildShield's web dashboard (`apps/web/`) uses a unified **Material 3 Expressive (Material You)** design language across all six views. Every screen shares the exact same application shell, tonal surface hierarchy, typography scale, and semantic status colors so developers can triage pull-request dependency risks without visual noise.
+AdvisoryTrail's web dashboard (`apps/web/`) uses a unified **Material 3 Expressive (Material You)** design language across all six views. Every screen shares the exact same application shell, tonal surface hierarchy, typography scale, and semantic status colors so developers can triage pull-request dependency risks without visual noise.
 
 ### 1.1 Core Product UX Guardrails
 
@@ -19,7 +19,7 @@ BuildShield's web dashboard (`apps/web/`) uses a unified **Material 3 Expressive
 
 ### 1.2 Tonal Color Palette & Surface Tokens
 
-| Token Name | Hex Value | Usage in BuildShield UI |
+| Token Name | Hex Value | Usage in AdvisoryTrail UI |
 | :--- | :--- | :--- |
 | `surface-background` | `#F8F7FC` | Main application canvas background and outer window shell |
 | `surface-container-low` | `#F1EEF9` | Left navigation rail and secondary card containers |
@@ -43,7 +43,7 @@ BuildShield's web dashboard (`apps/web/`) uses a unified **Material 3 Expressive
 
 ### 1.4 Global Application Shell (Persistent Across All 6 Tabs)
 
-- **Left Navigation Rail (`240px` fixed width):** Displays the BuildShield shield logo at the top, followed by exactly six top-level navigation items:
+- **Left Navigation Rail (`240px` fixed width):** Displays the AdvisoryTrail shield logo at the top, followed by exactly six top-level navigation items:
   1. `Dashboard` (Overview & Live Queue)
   2. `Repositories` (Connected GitHub Repos & Manual Scan Trigger)
   3. `Scans` (Scan Lifecycle & Execution History)
@@ -104,7 +104,7 @@ The **Repositories** tab manages connected GitHub repositories, displays detecte
   - **Primary Action Button (`+ Connect GitHub Repository`):** Expressive lavender pill button on the far right.
 - **How It Works:**
   - In **Phase 1 (Local Prototype)**, clicking `+ Connect GitHub Repository` opens a modal that submits `POST /api/v1/repositories` with `{ "owner": "acme", "name": "payment-service", "default_branch": "main", "local_path": "..." }` to register a local or test repository record in PostgreSQL.
-  - In **Phase 2 (GitHub App Integration)**, the button redirects to the GitHub App installation flow (`https://github.com/apps/buildshield/installations/new`) and syncs connected repositories via installation webhooks.
+  - In **Phase 2 (GitHub App Integration)**, the button redirects to the GitHub App installation flow (`https://github.com/apps/advisorytrail/installations/new`) and syncs connected repositories via installation webhooks.
 
 ### Markers (2), (3) & (4) — Connected Repository Tonal Cards
 
@@ -121,7 +121,7 @@ The **Repositories** tab manages connected GitHub repositories, displays detecte
 
 
 
-The **Scans** tab provides a complete operational audit of every scan execution, enforcing Section 7.1 of the BuildShield specification (`queued`, `running`, `succeeded`, `partial`, `failed`, `cancelled`, `timed_out`).
+The **Scans** tab provides a complete operational audit of every scan execution, enforcing Section 7.1 of the AdvisoryTrail specification (`queued`, `running`, `succeeded`, `partial`, `failed`, `cancelled`, `timed_out`).
 
 ### Marker (1) — Scan Lifecycle State Filter Pills
 
@@ -141,7 +141,7 @@ The **Scans** tab provides a complete operational audit of every scan execution,
 - **What It Is:** A full-width amber tonal banner (`#E6A845`) with an exclamation icon reading: *"Failed or incomplete scans are isolated from clean scans so errors are never mistaken for clean results."*
 - **How It Works:**
   - Appears automatically whenever the current scan list contains one or more scans in `failed`, `timed_out`, or `partial` status.
-  - Educates developers and pilot users on BuildShield's core reliability guarantee (MVP Acceptance Criterion #9: *"The product distinguishes a clean scan from a failed or incomplete scan"*).
+  - Educates developers and pilot users on AdvisoryTrail's core reliability guarantee (MVP Acceptance Criterion #9: *"The product distinguishes a clean scan from a failed or incomplete scan"*).
 
 ### Marker (3) — Scan Executions Table
 
@@ -170,11 +170,11 @@ The **Findings** tab is the core developer triage workspace. It pairs a filterab
   - **Change Relationship (Left):** Pills for `New in PR (2)` (highlighted in lavender), `Existing (4)`, `Resolved (1)`, and `Unknown (0)`.
   - **Severity (Right):** Outlined pills for `Critical`, `High`, `Medium`, and `Low`.
 - **How It Works:**
-  - Implements Section 9.3 of the BuildShield specification (Baseline Comparison):
+  - Implements Section 9.3 of the AdvisoryTrail specification (Baseline Comparison):
     - `New in PR`: Finding fingerprint appears in the PR `head_sha` scan (`f9e8d7c`) but was absent from the successful `base_sha` scan (`a1b2c3d`).
     - `Existing`: Finding fingerprint was already present in `base_sha` and remains in `head_sha`.
     - `Resolved`: Finding fingerprint was in `base_sha` and is absent from a **successful** `head_sha` scan.
-    - `Unknown`: Baseline scan is missing, incomplete, or failed—BuildShield never guesses that a finding is new or resolved without evidence.
+    - `Unknown`: Baseline scan is missing, incomplete, or failed—AdvisoryTrail never guesses that a finding is new or resolved without evidence.
   - Passes `?change_relationship=new&severity=high` to `GET /api/v1/scans/{scan_id}/findings`.
 
 ### Marker (2) — Normalized Dependency Findings List (Master List)
@@ -228,16 +228,16 @@ The **Policies** tab configures the deterministic rules engine (Section 10 of th
 
 ### Marker (3) — GitHub Check Run Output Preview
 
-- **What It Is:** A live preview card at the bottom of the screen rendering a simulated GitHub Pull Request check widget (`BuildShield PR Security Check — Failed: Policies enforced. New Critical Vulnerability found. Checked 14 files | 1 critical block`).
+- **What It Is:** A live preview card at the bottom of the screen rendering a simulated GitHub Pull Request check widget (`AdvisoryTrail PR Security Check — Failed: Policies enforced. New Critical Vulnerability found. Checked 14 files | 1 critical block`).
 - **How It Works:**
-  - Dynamically updates as the user toggles policy modes in Marker (1) or rules in Marker (2), showing the exact title, summary, and conclusion that BuildShield's `github_integration` module will send to `POST /repos/{owner}/{repo}/check-runs`.
+  - Dynamically updates as the user toggles policy modes in Marker (1) or rules in Marker (2), showing the exact title, summary, and conclusion that AdvisoryTrail's `github_integration` module will send to `POST /repos/{owner}/{repo}/check-runs`.
 
 
 ## 7. Tab 6: Audit Logs & Webhook Deliveries (`/audit-logs`)
 
 
 
-The **Audit Logs** tab satisfies the security, idempotency, and compliance requirements in Sections 6.1, 7.2, and 12.2 of the BuildShield specification.
+The **Audit Logs** tab satisfies the security, idempotency, and compliance requirements in Sections 6.1, 7.2, and 12.2 of the AdvisoryTrail specification.
 
 ### Marker (1) — Event Category Filter Bar & Export
 
@@ -258,7 +258,7 @@ The **Audit Logs** tab satisfies the security, idempotency, and compliance requi
 
 - **What It Is:** An immutable, timestamped log table with five columns:
   1. **Timestamp:** UTC/local ISO timestamp (`2026-10-31 10:15:32`).
-  2. **Actor:** User email (`umang@buildshield.dev`) or system principal (`github-webhook-bot`).
+  2. **Actor:** User email (`umang@advisorytrail.dev`) or system principal (`github-webhook-bot`).
   3. **Action:** Color-coded action pill (`FINDING_DISMISSED` in coral, `WEBHOOK_DELIVERY_DEDUPLICATED` in indigo, `SCAN_QUEUED` in neutral lavender).
   4. **Resource ID:** Target entity identifier (`vuln-998122`, `wh-delivery-88a`, `repo-sha-a9b1c`).
   5. **Justification:** Human-entered review reason (`False positive identification`) or system note (`Automatic deduplication`, `Automatic trigger on PR open`).

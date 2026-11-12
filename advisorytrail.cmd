@@ -1,6 +1,6 @@
 @echo off
-rem BuildShield launcher for Windows (CMD / PowerShell).
-rem Usage: buildshield start | stop | restart | status | monitor | doctor ...
+rem AdvisoryTrail launcher for Windows (CMD / PowerShell).
+rem Usage: advisorytrail start | stop | restart | status | monitor | doctor ...
 
 setlocal
 set "PYTHON="
@@ -14,10 +14,10 @@ if not defined PYTHON (
 )
 
 if not defined PYTHON (
-    echo BuildShield launcher needs Python 3, but it was not found on PATH.
+    echo AdvisoryTrail launcher needs Python 3, but it was not found on PATH.
     echo Install it from https://www.python.org/downloads/ and try again.
     exit /b 1
 )
 
-%PYTHON% "%~dp0tools\buildshield_launcher.py" %*
+%PYTHON% "%~dp0tools\advisorytrail_launcher.py" %*
 exit /b %ERRORLEVEL%

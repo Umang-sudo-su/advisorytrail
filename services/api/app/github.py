@@ -29,7 +29,7 @@ async def update_github_check(repo_full_name: str, commit_hash: str, status: str
     payload = {
         "state": state,
         "description": summary[:140] if summary else "Scan in progress...",
-        "context": "BuildShield Security Scan"
+        "context": "AdvisoryTrail Security Scan"
     }
     
     async with httpx.AsyncClient() as client:

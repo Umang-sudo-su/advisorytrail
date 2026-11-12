@@ -17,7 +17,7 @@ from sqlalchemy.future import select
 
 from app.models import AuditLog, UserPreference, WorkspaceSettings
 
-DEFAULT_WORKSPACE_NAME = "BuildShield"
+DEFAULT_WORKSPACE_NAME = "AdvisoryTrail"
 
 LANDING_PAGES = ["dashboard", "repositories", "scans", "findings"]
 LANGUAGES = ["en"]

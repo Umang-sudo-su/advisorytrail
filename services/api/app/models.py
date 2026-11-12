@@ -107,7 +107,7 @@ class WorkspaceSettings(Base):
     __tablename__ = "workspace_settings"
 
     id = Column(Integer, primary_key=True)
-    name = Column(String, nullable=False, default="BuildShield")
+    name = Column(String, nullable=False, default="AdvisoryTrail")
     settings = Column(JSON, nullable=False, default=dict)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
@@ -212,7 +212,7 @@ class AuditLog(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     timestamp = Column(DateTime, default=datetime.utcnow, index=True)
-    actor = Column(String, nullable=False)           # e.g., umang@buildshield.dev
+    actor = Column(String, nullable=False)           # e.g., umang@advisorytrail.dev
     action = Column(String, nullable=False)          # e.g., FINDING_DISMISSED, WEBHOOK_DELIVERY_DEDUPLICATED
     resource_id = Column(String, nullable=False)     # e.g., vuln-998122
     justification = Column(String, nullable=True)    # e.g., False positive identification

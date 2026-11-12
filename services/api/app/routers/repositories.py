@@ -64,7 +64,7 @@ async def create_repository(
     if existing.scalars().first():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"{full_name} is already connected to BuildShield.",
+            detail=f"{full_name} is already connected to AdvisoryTrail.",
         )
 
     connection = await load_connection(db)

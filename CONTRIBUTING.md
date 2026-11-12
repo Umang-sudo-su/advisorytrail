@@ -1,4 +1,4 @@
-# Contributing to BuildShield
+# Contributing to AdvisoryTrail
 
 Thanks for helping out. This document covers the local workflow, the checks a change is expected to
 pass, and how to report problems.
@@ -9,7 +9,7 @@ Open an issue with:
 
 - what you expected and what happened,
 - the exact steps to reproduce (repository visibility, branch and the scan you ran help a lot),
-- the relevant API log lines (`./buildshield logs api`), with any tokens or secrets removed.
+- the relevant API log lines (`./advisorytrail logs api`), with any tokens or secrets removed.
 
 Security problems must not be reported in a public issue — see [SECURITY.md](SECURITY.md).
 
@@ -19,14 +19,14 @@ Everything runs in Docker; Python and Node are not required on the host.
 
 ```bash
 docker compose up --build          # dashboard :3000, API :8000, docs :8000/docs
-./buildshield status               # container and endpoint health
-./buildshield logs api             # follow backend logs
+./advisorytrail status               # container and endpoint health
+./advisorytrail logs api             # follow backend logs
 ```
 
 For dashboard work with hot reload:
 
 ```bash
-cd buildshield-dashboard
+cd advisorytrail-dashboard
 npm install
 npm run dev
 ```
@@ -38,7 +38,7 @@ npm run dev
 docker compose exec api python -m pytest -q
 
 # Dashboard: type-check, production build, lint
-cd buildshield-dashboard
+cd advisorytrail-dashboard
 npm run build
 npm run lint
 ```
@@ -51,7 +51,7 @@ description instead of skipping it silently.
 - Scans run through `osv-scanner`; advisory metadata (severity, summary, fixed version) comes from
   the OSV.dev API. Keep both calls in `services/api/app/services/scanner.py`.
 - Findings are stored per advisory, one row each. Grouping for the UI happens in
-  `buildshield-dashboard/src/pages/Findings.tsx`.
+  `advisorytrail-dashboard/src/pages/Findings.tsx`.
 - Review writes must go through `PATCH /api/v1/findings/{id}` or `PATCH /api/v1/findings/bulk`; never
   mutate status from the client only.
 

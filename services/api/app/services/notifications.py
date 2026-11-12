@@ -123,7 +123,7 @@ async def _notify_user(
                 scheduled_for=None,
                 sent_at=now.replace(tzinfo=None),
                 status="in_app",
-                detail="Shown in BuildShield",
+                detail="Shown in AdvisoryTrail",
             )
         )
 
@@ -184,7 +184,7 @@ async def notify_scan_result(
     users = list(users_result.scalars().all())
 
     event = "scan_failed" if outcome in {"failed", "timed_out"} else "scan_completed"
-    subject = f"BuildShield: {repository_name} scan {outcome}"
+    subject = f"AdvisoryTrail: {repository_name} scan {outcome}"
     body = (
         f"Repository: {repository_name}\n"
         f"Commit: {commit_hash}\n"

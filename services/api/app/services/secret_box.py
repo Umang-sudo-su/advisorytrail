@@ -19,7 +19,7 @@ _BLOCK = 32
 
 
 def _keys() -> tuple[bytes, bytes]:
-    root = hashlib.sha256(f"buildshield-secret-box:{SECRET_KEY}".encode("utf-8")).digest()
+    root = hashlib.sha256(f"advisorytrail-secret-box:{SECRET_KEY}".encode("utf-8")).digest()
     encryption_key = hmac.new(root, b"encryption", hashlib.sha256).digest()
     mac_key = hmac.new(root, b"authentication", hashlib.sha256).digest()
     return encryption_key, mac_key

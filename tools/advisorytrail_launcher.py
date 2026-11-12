@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-"""BuildShield launcher and service manager.
+"""AdvisoryTrail launcher and service manager.
 
 Works on Windows, macOS and Linux. Only the Python standard library is used, so
 the launcher itself has no install step.
 
-    ./buildshield start            check/install Docker, then start the stack
-    ./buildshield stop             stop the stack (database volume kept)
-    ./buildshield restart          restart application services
-    ./buildshield status           container + endpoint health
-    ./buildshield monitor          watch health, restart failed services
-    ./buildshield logs [service]   show logs (-f to follow)
-    ./buildshield doctor           diagnose Docker and configuration
-    ./buildshield install-docker   install Docker for this operating system
-    ./buildshield open             open the dashboard
+    ./advisorytrail start            check/install Docker, then start the stack
+    ./advisorytrail stop             stop the stack (database volume kept)
+    ./advisorytrail restart          restart application services
+    ./advisorytrail status           container + endpoint health
+    ./advisorytrail monitor          watch health, restart failed services
+    ./advisorytrail logs [service]   show logs (-f to follow)
+    ./advisorytrail doctor           diagnose Docker and configuration
+    ./advisorytrail install-docker   install Docker for this operating system
+    ./advisorytrail open             open the dashboard
 """
 
 from __future__ import annotations
@@ -289,7 +289,7 @@ def engine_start_hint() -> List[str]:
         return [
             "Start Docker Desktop from the Start menu and wait for \"Engine running\".",
             'Or from PowerShell:  Start-Process "Docker Desktop"',
-            "If Docker Desktop is not installed:  .\\buildshield install-docker",
+            "If Docker Desktop is not installed:  .\\advisorytrail install-docker",
         ]
     return [
         "Start the daemon:  sudo systemctl start docker",
@@ -406,7 +406,7 @@ def ensure_docker(install: bool = False, assume_yes: bool = False, dry_run: bool
                 raise LauncherError(
                     "Docker is not installed.",
                 [
-                    "Install it automatically:  ./buildshield install-docker",
+                    "Install it automatically:  ./advisorytrail install-docker",
                     "macOS:    brew install --cask docker",
                     "Windows:  winget install -e --id Docker.DockerDesktop",
                     "Linux:    curl -fsSL https://get.docker.com | sudo sh",
@@ -483,7 +483,7 @@ def _install_plan() -> Tuple[List[List[str]], List[str], str]:
                 [
                     "Windows will ask for administrator approval.",
                     "WSL 2 is required; Docker Desktop offers to install it on first run.",
-                    "Sign out or reboot if the installer asks, then run: buildshield start",
+                    "Sign out or reboot if the installer asks, then run: advisorytrail start",
                 ],
                 "https://docs.docker.com/desktop/install/windows-install/",
             )
@@ -670,7 +670,7 @@ def wait_for_stack(timeout: float = 240.0, quiet: bool = False) -> bool:
 
 
 def cmd_start(args: argparse.Namespace) -> int:
-    title("BuildShield — starting the stack")
+    title("AdvisoryTrail — starting the stack")
     first_run = not ENV_FILE.is_file()
 
     ensure_docker(install=args.install_docker, assume_yes=args.yes, dry_run=args.dry_run)
@@ -693,7 +693,7 @@ def cmd_start(args: argparse.Namespace) -> int:
             [
                 "Inspect the output above for the failing service.",
                 "Port already allocated? Change WEB_PORT / API_PORT in .env.",
-                "Run: ./buildshield doctor",
+                "Run: ./advisorytrail doctor",
             ],
         )
 
@@ -702,13 +702,13 @@ def cmd_start(args: argparse.Namespace) -> int:
         print_status()
         return 1
 
-    ok("BuildShield is running")
+    ok("AdvisoryTrail is running")
     print_status()
 
     if first_run:
         print()
         info("Admin credentials were generated during setup:")
-        print(f"    ./buildshield logs setup      (line: Admin password)")
+        print(f"    ./advisorytrail logs setup      (line: Admin password)")
         print(f"    or: docker compose logs setup")
 
     print()
@@ -719,17 +719,17 @@ def cmd_start(args: argparse.Namespace) -> int:
 
 
 def cmd_stop(args: argparse.Namespace) -> int:
-    title("BuildShield — stopping the stack")
+    title("AdvisoryTrail — stopping the stack")
     ensure_docker()
     result = compose("down", timeout=None, capture=False)
     if result.returncode != 0:
-        raise LauncherError("docker compose down failed.", ["Run: ./buildshield doctor"])
+        raise LauncherError("docker compose down failed.", ["Run: ./advisorytrail doctor"])
     ok("Stack stopped (database volume kept; use `docker compose down -v` to wipe it)")
     return 0
 
 
 def cmd_restart(args: argparse.Namespace) -> int:
-    title("BuildShield — restarting services")
+    title("AdvisoryTrail — restarting services")
     ensure_docker()
 
     services = [args.service] if args.service else list(APP_SERVICES)
@@ -738,13 +738,13 @@ def cmd_restart(args: argparse.Namespace) -> int:
     if result.returncode != 0:
         raise LauncherError(
             "Restart failed.",
-            ["The container may not exist yet: run ./buildshield start"],
+            ["The container may not exist yet: run ./advisorytrail start"],
         )
 
     if wait_for_stack(timeout=args.timeout):
         ok("Services are healthy again")
         return 0
-    warn("Services restarted but are not healthy yet. Check ./buildshield logs")
+    warn("Services restarted but are not healthy yet. Check ./advisorytrail logs")
     return 1
 
 
@@ -777,7 +777,7 @@ def print_status() -> None:
 
 def cmd_status(args: argparse.Namespace) -> int:
     if not docker_cli_present():
-        bad("Docker is not installed. Run: ./buildshield install-docker")
+        bad("Docker is not installed. Run: ./advisorytrail install-docker")
         return 1
 
     running, diagnostic = engine_state()
@@ -794,7 +794,7 @@ def cmd_status(args: argparse.Namespace) -> int:
 
 
 def cmd_reset_data(args: argparse.Namespace) -> int:
-    title("BuildShield - resetting working data")
+    title("AdvisoryTrail - resetting working data")
     ensure_docker()
 
     warn(
@@ -817,8 +817,8 @@ def cmd_reset_data(args: argparse.Namespace) -> int:
         raise LauncherError(
             "The data reset failed.",
             [
-                "The API container must be running: ./buildshield start",
-                "Then retry: ./buildshield reset-data",
+                "The API container must be running: ./advisorytrail start",
+                "Then retry: ./advisorytrail reset-data",
             ],
         )
 
@@ -867,7 +867,7 @@ def restart_service(service: str) -> bool:
 
 def cmd_monitor(args: argparse.Namespace) -> int:
     ensure_docker()
-    title("BuildShield — health monitor")
+    title("AdvisoryTrail — health monitor")
 
     history: Dict[str, List[float]] = {name: [] for name in RESTARTABLE}
     http_failures: Dict[str, int] = {}
@@ -934,7 +934,7 @@ def cmd_monitor(args: argparse.Namespace) -> int:
                                 f"{service} keeps failing; giving up for "
                                 f"{RESTART_COOLDOWN_SECONDS // 60} minutes."
                             )
-                            info(f"Inspect logs: ./buildshield logs {service}")
+                            info(f"Inspect logs: ./advisorytrail logs {service}")
                             continue
                         history[service].append(now)
                         if restart_service(service):
@@ -946,7 +946,7 @@ def cmd_monitor(args: argparse.Namespace) -> int:
 
                     if any(service in ONE_SHOT for service, _ in problems):
                         info("Setup failed. Re-run it with:")
-                        print("    docker compose run --rm -e BUILDSHIELD_RECONFIGURE=1 setup")
+                        print("    docker compose run --rm -e ADVISORYTRAIL_RECONFIGURE=1 setup")
 
             if args.once:
                 return 1 if unresolved else 0
@@ -961,7 +961,7 @@ def cmd_monitor(args: argparse.Namespace) -> int:
 
 
 def cmd_doctor(args: argparse.Namespace) -> int:
-    title("BuildShield — environment check")
+    title("AdvisoryTrail — environment check")
     failures = 0
 
     def check(label: str, good: bool, detail: str = "", hints: Sequence[str] = ()) -> None:
@@ -983,7 +983,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         "Docker CLI",
         cli_version is not None,
         cli_version or "not found",
-        ["Install it with: ./buildshield install-docker"],
+        ["Install it with: ./advisorytrail install-docker"],
     )
 
     compose_ok = compose_present()
@@ -1042,7 +1042,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             "Containers",
             bool(rows) and not unhealthy,
             "all healthy" if rows and not unhealthy else (", ".join(unhealthy) or "stack not started"),
-            [] if rows else ["Start it with: ./buildshield start"],
+            [] if rows else ["Start it with: ./advisorytrail start"],
         )
 
     print()
@@ -1058,10 +1058,10 @@ def cmd_doctor(args: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="buildshield",
-        description="BuildShield launcher and service manager",
+        prog="advisorytrail",
+        description="AdvisoryTrail launcher and service manager",
     )
-    parser.add_argument("--version", action="version", version="BuildShield launcher 1.0")
+    parser.add_argument("--version", action="version", version="AdvisoryTrail launcher 1.0")
     subparsers = parser.add_subparsers(dest="command")
 
     start = subparsers.add_parser("start", help="start the whole stack (default)")
@@ -1120,7 +1120,7 @@ def cmd_install_docker(args: argparse.Namespace) -> int:
     if args.dry_run:
         return 0
     if not docker_cli_present():
-        warn("Docker is still not on PATH; open a new terminal and run ./buildshield doctor")
+        warn("Docker is still not on PATH; open a new terminal and run ./advisorytrail doctor")
         return 1
     try:
         start_engine()

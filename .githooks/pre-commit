@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pre-commit secret guard for BuildShield.
+# Pre-commit secret guard for AdvisoryTrail.
 #
 # Blocks commits that stage an environment file or contain something that looks
 # like a live credential (GitHub / GitLab / AWS / Slack / OpenAI-style tokens,

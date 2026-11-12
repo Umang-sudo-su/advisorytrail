@@ -71,7 +71,7 @@ async def export_audit_logs(format: str = Query("csv"), db: AsyncSession = Depen
         return StreamingResponse(
             iter([output.getvalue()]),
             media_type="text/csv",
-            headers={"Content-Disposition": "attachment; filename=buildshield_audit_logs.csv"}
+            headers={"Content-Disposition": "attachment; filename=advisorytrail_audit_logs.csv"}
         )
     else:
         # JSON export

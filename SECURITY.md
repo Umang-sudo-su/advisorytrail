@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-BuildShield is developed on `main`; security fixes land there first. If you run a fork or a pinned
+AdvisoryTrail is developed on `main`; security fixes land there first. If you run a fork or a pinned
 release, rebase on `main` to receive them.
 
 ## Reporting a vulnerability
@@ -22,7 +22,7 @@ Include:
 You can expect an acknowledgement within a few days and a fix or a mitigation plan in the following
 weeks, depending on severity. Credit is given in the advisory unless you prefer to stay anonymous.
 
-## What BuildShield already does
+## What AdvisoryTrail already does
 
 | Control | Where |
 | --- | --- |
@@ -42,5 +42,5 @@ weeks, depending on severity. Credit is given in the advisory unless you prefer 
 - Use a GitHub token scoped to the repositories you actually scan.
 - Replace MailHog with a real SMTP server for anything beyond local development.
 - Keep PostgreSQL on a private network; the published port is for local development only.
-- Back up the `buildshield_db_data_v1` volume before destructive operations such as
-  `./buildshield reset-data`.
+- Back up the `advisorytrail_db_data` volume before destructive operations such as
+  `./advisorytrail reset-data`.

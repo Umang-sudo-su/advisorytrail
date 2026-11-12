@@ -68,7 +68,7 @@ type SectionKey =
   | 'about';
 
 const sections: { key: SectionKey; label: string; hint: string; icon: typeof Bell }[] = [
-  { key: 'general', label: 'General', hint: 'Workspace defaults and how BuildShield behaves for you.', icon: SlidersHorizontal },
+  { key: 'general', label: 'General', hint: 'Workspace defaults and how AdvisoryTrail behaves for you.', icon: SlidersHorizontal },
   { key: 'account', label: 'Account & Login', hint: 'Your identity, password and sign-in security.', icon: UserRound },
   { key: 'github', label: 'GitHub Integration', hint: 'Connection health, repository access and permissions.', icon: GitBranch },
   { key: 'scan', label: 'Scan Configuration', hint: 'When scans run and how much of the server they may use.', icon: ScanLine },
@@ -1522,7 +1522,7 @@ export default function Settings() {
                   </div>
                 )}
                 <p className="settings-section-note">
-                  A repository missing from this list has not been granted to BuildShield, or has never been
+                  A repository missing from this list has not been granted to AdvisoryTrail, or has never been
                   scanned. Repository operations live in the Repositories tab.
                 </p>
               </section>
@@ -1535,7 +1535,7 @@ export default function Settings() {
                   ))}
                 </ul>
                 <p className="settings-section-note">
-                  These are the permissions the backend actually uses. BuildShield does not request write access to
+                  These are the permissions the backend actually uses. AdvisoryTrail does not request write access to
                   code.
                 </p>
               </section>
@@ -1788,7 +1788,7 @@ export default function Settings() {
                 <div className="settings-rows">
                   <Row
                     label="In-app notifications"
-                    help="Shown inside BuildShield and recorded against your account."
+                    help="Shown inside AdvisoryTrail and recorded against your account."
                     control={
                       <Toggle
                         label="In-app notifications"
@@ -2463,7 +2463,7 @@ export default function Settings() {
                 )}
 
                 <p className="settings-section-note">
-                  Requests are signed with <code>X-BuildShield-Signature: sha256=&lt;hmac&gt;</code> using the endpoint
+                  Requests are signed with <code>X-AdvisoryTrail-Signature: sha256=&lt;hmac&gt;</code> using the endpoint
                   secret. Test deliveries use the `webhook.test` event.
                 </p>
               </section>
@@ -2476,7 +2476,7 @@ export default function Settings() {
                 <h3 className="settings-section-title">Version &amp; build</h3>
                 <dl className="settings-kv">
                   <div>
-                    <dt>BuildShield</dt>
+                    <dt>AdvisoryTrail</dt>
                     <dd>{payload.server.version}</dd>
                   </div>
                   <div>
@@ -2534,7 +2534,7 @@ export default function Settings() {
                   </div>
                 </dl>
                 <p className="settings-section-note">
-                  BuildShield does not link to an external status page or support desk because this deployment has
+                  AdvisoryTrail does not link to an external status page or support desk because this deployment has
                   none configured.
                 </p>
               </section>

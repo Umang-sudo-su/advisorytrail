@@ -319,7 +319,7 @@ export default function Repositories() {
             )}
 
             <p className="modal-note">
-              BuildShield asks GitHub whether the repository exists and whether the connected
+              AdvisoryTrail asks GitHub whether the repository exists and whether the connected
               account can read it. Nothing is saved unless both checks pass.
             </p>
 

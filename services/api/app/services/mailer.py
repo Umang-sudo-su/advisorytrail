@@ -23,8 +23,8 @@ def _settings() -> dict:
         "port": int(os.getenv("SMTP_PORT", "1025")),
         "username": os.getenv("SMTP_USERNAME", "").strip(),
         "password": os.getenv("SMTP_PASSWORD", ""),
-        "sender": os.getenv("SMTP_FROM", "no-reply@buildshield.local").strip(),
-        "sender_name": os.getenv("SMTP_FROM_NAME", "BuildShield").strip(),
+        "sender": os.getenv("SMTP_FROM", "no-reply@advisorytrail.local").strip(),
+        "sender_name": os.getenv("SMTP_FROM_NAME", "AdvisoryTrail").strip(),
         "mode": os.getenv("SMTP_SECURITY", "none").strip().lower(),  # none | starttls | ssl
         "timeout": float(os.getenv("SMTP_TIMEOUT", "10")),
     }
@@ -47,7 +47,7 @@ def _send_sync(to: str, subject: str, body: str, config: dict) -> None:
     message["To"] = to
     message["Subject"] = subject
     message["Date"] = datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S +0000")
-    message["Message-ID"] = make_msgid(domain="buildshield.local")
+    message["Message-ID"] = make_msgid(domain="advisorytrail.local")
     message.set_content(body)
 
     if config["mode"] == "ssl":

@@ -22,7 +22,7 @@ from app.services.github_auth import load_connection as load_github_connection
 from app.services.notifications import notify_scan_result
 
 # Set per scan so status updates use the connected token without threading it through every call.
-_GITHUB_TOKEN_VAR: ContextVar[str | None] = ContextVar("buildshield_github_token", default=None)
+_GITHUB_TOKEN_VAR: ContextVar[str | None] = ContextVar("advisorytrail_github_token", default=None)
 
 logger = logging.getLogger(__name__)
 
@@ -181,7 +181,7 @@ async def update_github_commit_status(owner_repo: str, commit_hash: str, state: 
 
     url = f"https://api.github.com/repos/{owner_repo}/statuses/{commit_hash}"
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
-    payload = {"state": state, "description": description[:140], "context": "security/buildshield"}
+    payload = {"state": state, "description": description[:140], "context": "security/advisorytrail"}
     if target_url:
         payload["target_url"] = target_url
     try:
@@ -287,7 +287,7 @@ async def run_osv_scan(scan_id: int):
                 scan.finished_at = datetime.now(timezone.utc)
                 await db.commit()
                 if repo_identifier:
-                    await push_commit_status(scan_id, repo_identifier, commit_hash, "error", "BuildShield: no readable dependency manifest.", f"http://127.0.0.1:8000/api/v1/scans/{scan.id}")
+                    await push_commit_status(scan_id, repo_identifier, commit_hash, "error", "AdvisoryTrail: no readable dependency manifest.", f"http://127.0.0.1:8000/api/v1/scans/{scan.id}")
                 try:
                     await notify_scan_result(
                         db,
@@ -314,7 +314,7 @@ async def run_osv_scan(scan_id: int):
                 scan.finished_at = datetime.now(timezone.utc)
                 await db.commit()
                 if repo_identifier: 
-                    await push_commit_status(scan_id, repo_identifier, commit_hash, "success", f"BuildShield: No dependencies found in {manifest_name}.", f"http://127.0.0.1:8000/api/v1/scans/{scan.id}")
+                    await push_commit_status(scan_id, repo_identifier, commit_hash, "success", f"AdvisoryTrail: No dependencies found in {manifest_name}.", f"http://127.0.0.1:8000/api/v1/scans/{scan.id}")
                 return
 
             # 3. Query OSV using the dynamically mapped ecosystem
@@ -325,7 +325,7 @@ async def run_osv_scan(scan_id: int):
                 scan.finished_at = datetime.now(timezone.utc)
                 await db.commit()
                 if repo_identifier:
-                    await push_commit_status(scan_id, repo_identifier, commit_hash, "success", f"BuildShield: no pinned dependency versions found in {manifest_name}.", f"http://127.0.0.1:8000/api/v1/scans/{scan.id}")
+                    await push_commit_status(scan_id, repo_identifier, commit_hash, "success", f"AdvisoryTrail: no pinned dependency versions found in {manifest_name}.", f"http://127.0.0.1:8000/api/v1/scans/{scan.id}")
                 return
 
             def extract_fixed(data, package: str):
@@ -463,7 +463,7 @@ async def run_osv_scan(scan_id: int):
             await db.commit()
             print(f"[Scan {scan_id}] failed: {e}")
             if repo_identifier:
-                await push_commit_status(scan_id, repo_identifier, commit_hash, "error", f"BuildShield scan failed: {str(e)[:50]}", f"http://127.0.0.1:8000/api/v1/scans/{scan_id}")
+                await push_commit_status(scan_id, repo_identifier, commit_hash, "error", f"AdvisoryTrail scan failed: {str(e)[:50]}", f"http://127.0.0.1:8000/api/v1/scans/{scan_id}")
 
             try:
                 await notify_scan_result(

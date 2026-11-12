@@ -80,7 +80,7 @@ async def update_policy_settings(payload: PolicySettingsUpdate, db: AsyncSession
     row.updated_at = datetime.now(timezone.utc)
     db.add(
         AuditLog(
-            actor="umang@buildshield.dev",
+            actor="umang@advisorytrail.dev",
             action="POLICY_UPDATED",
             resource_id="policy-settings",
             justification="; ".join(changes),

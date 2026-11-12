@@ -148,8 +148,8 @@ export async function changePassword(currentPassword: string, newPassword: strin
   });
 }
 
-export const TOKEN_KEY = 'buildshield_token';
-export const UNAUTHORIZED_EVENT = 'buildshield:unauthorized';
+export const TOKEN_KEY = 'advisorytrail_token';
+export const UNAUTHORIZED_EVENT = 'advisorytrail:unauthorized';
 
 /**
  * Session tokens live in sessionStorage, so signing in once lasts for the whole
@@ -211,7 +211,7 @@ export async function fetchFromAPI(endpoint: string, options: RequestInit = {}) 
             headers,
         });
     } catch {
-        throw new Error(`Cannot reach the BuildShield API at ${base}. Check that the backend is running.`);
+        throw new Error(`Cannot reach the AdvisoryTrail API at ${base}. Check that the backend is running.`);
     }
 
     if (response.status === 401) {
@@ -246,7 +246,7 @@ async function postAuthRequest(path: string, body: BodyInit, contentType: string
             body,
         });
     } catch {
-        throw new Error(`Cannot reach the BuildShield API at ${base}. Check that the backend is running.`);
+        throw new Error(`Cannot reach the AdvisoryTrail API at ${base}. Check that the backend is running.`);
     }
 
     if (!response.ok) {
@@ -495,7 +495,7 @@ export async function getHealth(): Promise<HealthStatus> {
     try {
         response = await fetch(`${base}/health`);
     } catch {
-        throw new Error(`Cannot reach the BuildShield API at ${base}.`);
+        throw new Error(`Cannot reach the AdvisoryTrail API at ${base}.`);
     }
 
     if (!response.ok) {
@@ -516,7 +516,7 @@ export async function exportAuditLogs(format: 'csv' | 'json'): Promise<{ blob: B
             headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
     } catch {
-        throw new Error(`Cannot reach the BuildShield API at ${base}.`);
+        throw new Error(`Cannot reach the AdvisoryTrail API at ${base}.`);
     }
 
     if (response.status === 401) {
@@ -531,6 +531,6 @@ export async function exportAuditLogs(format: 'csv' | 'json'): Promise<{ blob: B
 
     return {
         blob: await response.blob(),
-        filename: `buildshield_audit_logs.${format}`,
+        filename: `advisorytrail_audit_logs.${format}`,
     };
 }

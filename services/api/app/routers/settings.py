@@ -44,7 +44,7 @@ APP_VERSION = os.getenv("APP_VERSION", "1.0.0")
 GITHUB_PERMISSIONS = [
     "Repository contents — read dependency manifests (package-lock.json, poetry.lock, requirements.txt)",
     "Pull requests — read head/base commits to diff findings",
-    "Commit statuses — write the BuildShield check result on the scanned commit",
+    "Commit statuses — write the AdvisoryTrail check result on the scanned commit",
 ]
 
 
@@ -506,12 +506,12 @@ async def send_test_notification(
             Notification(
                 user_id=current_user.id,
                 event="account_security",
-                subject="BuildShield test notification",
+                subject="AdvisoryTrail test notification",
                 body="This is a test notification from Settings.",
                 digest="immediate",
                 sent_at=prefs.utcnow(),
                 status="in_app",
-                detail="Shown in BuildShield",
+                detail="Shown in AdvisoryTrail",
             )
         )
         details.append("in-app")
@@ -520,7 +520,7 @@ async def send_test_notification(
     if channels.get("email"):
         mail = await mailer.send_email(
             current_user.email,
-            "BuildShield test notification",
+            "AdvisoryTrail test notification",
             "This is a test notification from Settings → Notifications.",
         )
         details.append(f"email {mail['detail']}")
@@ -923,8 +923,8 @@ async def test_webhook(
                 content=body,
                 headers={
                     "Content-Type": "application/json",
-                    "X-BuildShield-Event": "webhook.test",
-                    "X-BuildShield-Signature": f"sha256={signature}",
+                    "X-AdvisoryTrail-Event": "webhook.test",
+                    "X-AdvisoryTrail-Signature": f"sha256={signature}",
                 },
                 timeout=8.0,
             )

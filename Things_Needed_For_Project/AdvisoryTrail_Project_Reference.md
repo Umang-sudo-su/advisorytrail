@@ -1,6 +1,6 @@
-# BuildShield — Project Reference and Implementation Guide
+# AdvisoryTrail — Project Reference and Implementation Guide
 
-> **Document purpose:** This is the central project reference for developers, AI coding assistants, reviewers, and future contributors working on BuildShield. Use it as the source of truth for product scope, architecture, security requirements, milestones, and engineering conventions.
+> **Document purpose:** This is the central project reference for developers, AI coding assistants, reviewers, and future contributors working on AdvisoryTrail. Use it as the source of truth for product scope, architecture, security requirements, milestones, and engineering conventions.
 >
 > **Project status:** Planning / initial implementation.
 >
@@ -14,11 +14,11 @@
 
 ## 1. Project summary
 
-BuildShield helps software teams understand which security and reliability findings deserve attention when code changes.
+AdvisoryTrail helps software teams understand which security and reliability findings deserve attention when code changes.
 
 It integrates with GitHub repositories, reacts to pull-request events, runs selected scanners in controlled background workers, normalizes their results into a common finding model, compares results with a baseline, and presents the outcome through GitHub Checks and a web dashboard.
 
-BuildShield is **not** intended to replace every security scanner. Its initial value is the workflow around scanners:
+AdvisoryTrail is **not** intended to replace every security scanner. Its initial value is the workflow around scanners:
 
 - Identify and report known dependency vulnerabilities.
 - Distinguish findings that are new or affected by a pull request from pre-existing findings when evidence supports that distinction.
@@ -43,7 +43,7 @@ Do not target every enterprise or every programming language in the first releas
 
 ### 1.3 Core user story
 
-> As a developer, when I open or update a pull request, I want BuildShield to scan the relevant dependency changes, show evidence-backed findings, tell me which findings are new or pre-existing when it can determine that reliably, and publish a concise result in GitHub so I can decide what to fix before merging.
+> As a developer, when I open or update a pull request, I want AdvisoryTrail to scan the relevant dependency changes, show evidence-backed findings, tell me which findings are new or pre-existing when it can determine that reliably, and publish a concise result in GitHub so I can decide what to fix before merging.
 
 ### 1.4 Product principles
 
@@ -70,9 +70,9 @@ Software teams can receive security findings from multiple tools. Reports may us
 - What should be done next?
 - Does the issue justify blocking a pull request under the team's policy?
 
-### 2.2 BuildShield's intended differentiator
+### 2.2 AdvisoryTrail's intended differentiator
 
-BuildShield combines scanner results and pull-request context into an understandable workflow. Its differentiators are goals to validate with real users, not assumptions that the product is already better than competitors.
+AdvisoryTrail combines scanner results and pull-request context into an understandable workflow. Its differentiators are goals to validate with real users, not assumptions that the product is already better than competitors.
 
 Initial differentiators:
 
@@ -85,7 +85,7 @@ Initial differentiators:
 
 ### 2.3 Competitive landscape
 
-Existing tools already cover parts of this space, including OSV-Scanner, Semgrep, Trivy, GitHub's native security features, and other dependency and static-analysis platforms. BuildShield should integrate selected tools and focus on the workflow and prioritization layer.
+Existing tools already cover parts of this space, including OSV-Scanner, Semgrep, Trivy, GitHub's native security features, and other dependency and static-analysis platforms. AdvisoryTrail should integrate selected tools and focus on the workflow and prioritization layer.
 
 Before committing to a differentiator, research current competing products, licensing, capabilities, pricing, and user complaints. Do not assume the market gap exists without validating it.
 
@@ -151,7 +151,7 @@ Before committing to a differentiator, research current competing products, lice
 
 The MVP is acceptable when all of the following work in a test installation:
 
-1. An authorized user installs the BuildShield GitHub App on a test repository.
+1. An authorized user installs the AdvisoryTrail GitHub App on a test repository.
 2. Opening or updating a pull request triggers a scan asynchronously.
 3. The scan produces a stored report, including an explicit success, partial, or failure status.
 4. Findings contain a scanner/source identifier and traceable evidence when available.
@@ -257,7 +257,7 @@ Keep module boundaries clear so a component can be split later if its workload o
 Suggested initial monorepo:
 
 ```text
-buildshield/
+advisorytrail/
 ├── apps/
 │   └── web/                      # React + TypeScript dashboard
 ├── services/
@@ -629,7 +629,7 @@ A future AI feature should be evaluated against a deterministic baseline. If it 
 
 ## 12. Security and threat model
 
-BuildShield is a security-sensitive product. Its own architecture must not create a path for untrusted repositories to compromise the service.
+AdvisoryTrail is a security-sensitive product. Its own architecture must not create a path for untrusted repositories to compromise the service.
 
 ### 12.1 Main threats
 
@@ -642,7 +642,7 @@ BuildShield is a security-sensitive product. Its own architecture must not creat
 - Cross-tenant data access.
 - Sensitive source code or secrets leaking into logs.
 - Prompt injection in repository content if AI is added.
-- Supply-chain attacks against BuildShield's own dependencies or build pipeline.
+- Supply-chain attacks against AdvisoryTrail's own dependencies or build pipeline.
 
 ### 12.2 Mandatory controls
 
@@ -1046,7 +1046,7 @@ Do not judge success by feature count, lines of code, or whether an AI model is 
 
 ### Pilot target
 
-Aim to recruit 3–5 teams, but treat this as a target, not a guarantee. Record why each team adopts, rejects, or stops using BuildShield. A pilot that reveals a weak product assumption is useful if the team responds to the evidence.
+Aim to recruit 3–5 teams, but treat this as a target, not a guarantee. Record why each team adopts, rejects, or stops using AdvisoryTrail. A pilot that reveals a weak product assumption is useful if the team responds to the evidence.
 
 ---
 
@@ -1162,7 +1162,7 @@ Record decisions and reasons in `docs/DECISIONS.md`.
 
 ## 22. Definition of done for the MVP
 
-BuildShield's MVP is ready for a controlled pilot when:
+AdvisoryTrail's MVP is ready for a controlled pilot when:
 
 - [ ] A user can install the GitHub App on a test repository.
 - [ ] Pull-request events trigger background scans.
@@ -1222,7 +1222,7 @@ Check current documentation, supported ecosystems, licenses, and version compati
 
 ## 25. Final product principle
 
-BuildShield will succeed only if developers trust the results and find them useful.
+AdvisoryTrail will succeed only if developers trust the results and find them useful.
 
 Prioritize evidence, safe execution, predictable behavior, and a smooth workflow. Deliver a small reliable product, test it with real teams, and expand based on demonstrated needs.
 

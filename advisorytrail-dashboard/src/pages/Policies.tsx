@@ -68,7 +68,7 @@ function CheckPreview({ mode, blockRuleOn }: { mode: PolicyMode; blockRuleOn: bo
       {tone === 'warn' && <TriangleAlert size={22} aria-hidden="true" />}
       {tone === 'neutral' && <CircleCheck size={22} aria-hidden="true" />}
       <div>
-        <p className="check-title">BuildShield PR Security Check</p>
+        <p className="check-title">AdvisoryTrail PR Security Check</p>
         <p>
           <strong className="check-status">{label}</strong> {message}
         </p>

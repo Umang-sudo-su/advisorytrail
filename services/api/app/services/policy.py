@@ -105,20 +105,20 @@ async def evaluate_check_run(
     states = {rule["id"]: rule["enabled"] for rule in settings["rules"]}
 
     if total_findings == 0:
-        return "success", f"BuildShield: {manifest_name} passed!"
+        return "success", f"AdvisoryTrail: {manifest_name} passed!"
 
     if mode == "report":
-        return "success", f"BuildShield: {total_findings} vulnerabilities found (report only)."
+        return "success", f"AdvisoryTrail: {total_findings} vulnerabilities found (report only)."
 
     if mode == "warn":
-        return "success", f"BuildShield: {total_findings} vulns found (Warning Mode)."
+        return "success", f"AdvisoryTrail: {total_findings} vulns found (Warning Mode)."
 
     if not states.get("block-new", True):
-        return "success", f"BuildShield: {total_findings} vulns found (Rule 1 is off, PR not blocked)."
+        return "success", f"AdvisoryTrail: {total_findings} vulns found (Rule 1 is off, PR not blocked)."
 
     if blocking_new > 0:
         return "failure", (
-            f"BuildShield: {blocking_new} new Critical/High vulns with fixes block this PR."
+            f"AdvisoryTrail: {blocking_new} new Critical/High vulns with fixes block this PR."
         )
 
-    return "success", f"BuildShield: {total_findings} vulns found (no new Critical/High with fixes)."
+    return "success", f"AdvisoryTrail: {total_findings} vulns found (no new Critical/High with fixes)."

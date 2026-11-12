@@ -4,7 +4,7 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 
 raw_db_url = os.getenv(
     "DATABASE_URL", 
-    "postgresql://buildshield:buildshield_dev_pass@localhost:5432/buildshield_db"
+    "postgresql://advisorytrail:advisorytrail_dev_pass@localhost:5432/advisorytrail_db"
 )
 DATABASE_URL = raw_db_url.replace("postgresql://", "postgresql+asyncpg://")
 

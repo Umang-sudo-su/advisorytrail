@@ -44,7 +44,7 @@ async def lifespan(app: FastAPI):
             await scheduler_task
 
 app = FastAPI(
-    title="BuildShield API",
+    title="AdvisoryTrail API",
     description="GitHub-integrated security and reliability platform",
     version="1.0.0",
     lifespan=lifespan

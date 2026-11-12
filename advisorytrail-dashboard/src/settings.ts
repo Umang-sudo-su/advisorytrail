@@ -6,7 +6,7 @@ export interface AppSettings {
   defaultCommitRef: string;
 }
 
-export const SETTINGS_KEY = 'buildshield_settings';
+export const SETTINGS_KEY = 'advisorytrail_settings';
 
 export const DEFAULT_API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '');
 export const DEFAULT_COMMIT_REF = 'HEAD';

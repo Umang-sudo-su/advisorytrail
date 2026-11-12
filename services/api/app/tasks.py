@@ -69,7 +69,7 @@ async def process_scan_background(scan_id: int, clone_url: str):
         # 2. NOTIFY GITHUB: SCAN FINISHED
         # If we found 1 or more vulnerabilities, the PR fails. Otherwise, it passes.
         conclusion = "failure" if vuln_count > 0 else "success"
-        summary = f"BuildShield detected {vuln_count} high-severity vulnerabilities."
+        summary = f"AdvisoryTrail detected {vuln_count} high-severity vulnerabilities."
         
         await update_github_check(repo.name, scan.commit_hash, "completed", conclusion, summary)
         logger.info(f"Scan {scan_id} COMPLETED. GitHub Check set to {conclusion}.")

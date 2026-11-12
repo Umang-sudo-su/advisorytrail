@@ -1,8 +1,8 @@
-# BuildShield
+# AdvisoryTrail
 
 **Dependency security scanning for every GitHub repository you own — with the review trail an audit needs.**
 
-BuildShield connects to real GitHub repositories, scans their pinned dependencies with
+AdvisoryTrail connects to real GitHub repositories, scans their pinned dependencies with
 [OSV-Scanner](https://google.github.io/osv-scanner/), turns the results into a per-package advisory
 list with real severities and fixed versions, and records every triage decision in an immutable
 audit trail. It runs as a single Docker Compose stack: FastAPI, PostgreSQL, a React dashboard and a
@@ -15,12 +15,12 @@ local mail sink for testing notifications.
 
 ---
 
-## Why BuildShield
+## Why AdvisoryTrail
 
 Most scanners stop at "you have a vulnerable dependency". The hard part in a real team is what
 happens next: who accepted the risk, why, and can you prove it six months later.
 
-BuildShield is built around that review step:
+AdvisoryTrail is built around that review step:
 
 - **Real repositories only.** A repository is added only after GitHub confirms it exists and that
   the connected account can read it. Private repositories are supported; typos and inaccessible
@@ -74,8 +74,8 @@ BuildShield is built around that review step:
 Python and Node run inside containers.
 
 ```bash
-git clone https://github.com/Umang-sudo-su/buildshield.git
-cd buildshield
+git clone https://github.com/Umang-sudo-su/advisorytrail.git
+cd advisorytrail
 docker compose up --build
 ```
 
@@ -100,19 +100,19 @@ Sign in with the admin account you created and connect your first repository.
 
 ### Launcher (optional)
 
-`./buildshield` (macOS/Linux) and `buildshield.cmd` (Windows) wrap the common operations:
+`./advisorytrail` (macOS/Linux) and `advisorytrail.cmd` (Windows) wrap the common operations:
 
 | Command | Purpose |
 | --- | --- |
-| `./buildshield` | Start the whole stack (default) |
-| `./buildshield status` | Container and endpoint health |
-| `./buildshield logs [service]` | Follow logs (`api`, `web`, `db`, `mailhog`) |
-| `./buildshield restart` | Restart application services |
-| `./buildshield monitor` | Watch health and restart failed services |
-| `./buildshield doctor` | Diagnose Docker and the configuration |
-| `./buildshield reset-data` | Delete all data and recreate the admin account |
-| `./buildshield open` | Open the dashboard in your browser |
-| `./buildshield stop` | Stop the stack |
+| `./advisorytrail` | Start the whole stack (default) |
+| `./advisorytrail status` | Container and endpoint health |
+| `./advisorytrail logs [service]` | Follow logs (`api`, `web`, `db`, `mailhog`) |
+| `./advisorytrail restart` | Restart application services |
+| `./advisorytrail monitor` | Watch health and restart failed services |
+| `./advisorytrail doctor` | Diagnose Docker and the configuration |
+| `./advisorytrail reset-data` | Delete all data and recreate the admin account |
+| `./advisorytrail open` | Open the dashboard in your browser |
+| `./advisorytrail stop` | Stop the stack |
 
 ## Configuration
 
@@ -120,7 +120,7 @@ Sign in with the admin account you created and connect your first repository.
 variable. Re-run the wizard to change values:
 
 ```bash
-docker compose run --rm -e BUILDSHIELD_RECONFIGURE=1 setup
+docker compose run --rm -e ADVISORYTRAIL_RECONFIGURE=1 setup
 ```
 
 | Variable | Purpose |
@@ -135,16 +135,16 @@ docker compose run --rm -e BUILDSHIELD_RECONFIGURE=1 setup
 | `WEB_PORT` / `API_PORT` / `DB_PORT` | Published host ports (default `3000` / `8000` / `5433`) |
 
 **Token scopes.** Classic tokens need `repo` (private repositories, commit statuses) and
-`admin:repo_hook` only if BuildShield should create the webhook for you. Without write access,
+`admin:repo_hook` only if AdvisoryTrail should create the webhook for you. Without write access,
 commit statuses are skipped and the API logs the exact reason (`GitHub refused it (HTTP 403); the
 connected token needs write access to owner/repo`).
 
-## Using BuildShield
+## Using AdvisoryTrail
 
 ### Connect a repository
 
 Paste `https://github.com/owner/repository` or `owner/repository`, choose the branch and submit.
-BuildShield verifies with GitHub that:
+AdvisoryTrail verifies with GitHub that:
 
 - the URL points at `github.com` (other hosts are refused),
 - the repository exists,
@@ -229,7 +229,7 @@ cd services/api && uvicorn app.main:app --reload   # only when running outside D
 **Dashboard**
 
 ```bash
-cd buildshield-dashboard
+cd advisorytrail-dashboard
 npm install
 npm run dev      # http://localhost:5173
 npm run build    # type-check + production bundle
@@ -240,7 +240,7 @@ npm run lint
 
 ```
 .
-├── buildshield-dashboard/        React + TypeScript dashboard (Vite, nginx image)
+├── advisorytrail-dashboard/        React + TypeScript dashboard (Vite, nginx image)
 │   └── src/
 │       ├── pages/                Dashboard, Repositories, Scans, Findings, Policies, AuditLogs, Settings, Login
 │       ├── components/           Layout, status badges, page states, live indicator
@@ -253,7 +253,7 @@ npm run lint
 │   │   ├── scanners/             OSV-Scanner adapter
 │   │   └── setup_wizard.py       First-run configuration
 │   └── tests/                    Pytest suite
-├── tools/buildshield_launcher.py Cross-platform launcher behind `./buildshield`
+├── tools/advisorytrail_launcher.py Cross-platform launcher behind `./advisorytrail`
 ├── docker-compose.yml            The whole platform in one file
 └── .env.example                  Documented configuration template
 ```
@@ -269,5 +269,5 @@ Released under the [MIT License](LICENSE).
 
 ## Acknowledgements
 
-BuildShield stands on [OSV](https://osv.dev/) and [osv-scanner](https://github.com/google/osv-scanner)
+AdvisoryTrail stands on [OSV](https://osv.dev/) and [osv-scanner](https://github.com/google/osv-scanner)
 for vulnerability data, and on FastAPI, SQLAlchemy, React, Vite and PostgreSQL.

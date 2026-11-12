@@ -17,7 +17,7 @@ from urllib.parse import quote
 
 STEP_SECONDS = 30
 DIGITS = 6
-ISSUER = "BuildShield"
+ISSUER = "AdvisoryTrail"
 
 
 def generate_secret(byte_length: int = 20) -> str:

@@ -93,7 +93,7 @@ function AppContent() {
       <aside className="sidebar">
         <div className="brand">
           <span className="brand-plate">
-            <img src="/assets/logo-sidebar.png" alt="BuildShield" className="brand-logo" />
+            <img src="/assets/logo-sidebar.svg" alt="AdvisoryTrail" className="brand-logo" />
           </span>
         </div>
 
@@ -133,7 +133,7 @@ function AppContent() {
             <span className="avatar" aria-hidden="true">{initials}</span>
             <span className="user-meta">
               <strong>{user?.username ?? 'Signed in'}</strong>
-              <small>{user?.email ?? 'BuildShield session'}</small>
+              <small>{user?.email ?? 'AdvisoryTrail session'}</small>
             </span>
           </div>
 

@@ -19,7 +19,7 @@ export default function Layout() {
       <aside className="sidebar">
         <div className="brand">
           <Shield aria-hidden="true" />
-          <span>BuildShield</span>
+          <span>AdvisoryTrail</span>
         </div>
 
         <nav aria-label="Main">
@@ -34,7 +34,7 @@ export default function Layout() {
 
       <div className="main">
         <header className="topbar">
-          <h1>{current?.label ?? 'BuildShield'}</h1>
+          <h1>{current?.label ?? 'AdvisoryTrail'}</h1>
         </header>
         <main className="content">
           <Outlet />

@@ -5,7 +5,7 @@ import type { DateFormatKey, Density, LandingPage, TimeFormatKey, UserPreference
  * auto-refresh use the last known values before the Settings payload arrives.
  * The server remains the source of truth.
  */
-export const PREFS_CACHE_KEY = 'buildshield_prefs';
+export const PREFS_CACHE_KEY = 'advisorytrail_prefs';
 
 export const DEFAULT_PREFS: UserPreferences = {
   display_name: '',

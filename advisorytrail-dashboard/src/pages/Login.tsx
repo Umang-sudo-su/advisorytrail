@@ -127,14 +127,14 @@ export default function Login() {
           <img src="/assets/logo-mark-light.png" alt="" className="brand-shield" aria-hidden="true" />
 
           <div className="brand-top">
-            <img src="/assets/logo-lockup-light.png" alt="BuildShield" className="login-lockup" />
+            <img src="/assets/logo-lockup-light.svg" alt="AdvisoryTrail" className="login-lockup" />
             <p className="brand-tagline">Scan &bull; Detect &bull; Protect</p>
           </div>
 
           <div className="brand-copy">
             <h3>Every pull request, checked before it merges.</h3>
             <p>
-              BuildShield runs dependency scanners on your repositories and turns raw results into
+              AdvisoryTrail runs dependency scanners on your repositories and turns raw results into
               evidence-backed findings, policies and audit trails.
             </p>
             <ul className="brand-points">
@@ -342,7 +342,7 @@ export default function Login() {
 
           {!challenge && (
             <p className="form-footer">
-              {isRegistering ? 'Already have an account?' : 'New to BuildShield?'}
+              {isRegistering ? 'Already have an account?' : 'New to AdvisoryTrail?'}
               <button type="button" className="link-button" onClick={switchMode}>
                 {isRegistering ? 'Sign in' : 'Create an account'}
               </button>

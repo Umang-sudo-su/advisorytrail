@@ -1,6 +1,6 @@
-# BuildShield — Six-Member Team Roles & Responsibilities
+# AdvisoryTrail — Six-Member Team Roles & Responsibilities
 
-**Project:** BuildShield — a security and reliability platform for software teams  
+**Project:** AdvisoryTrail — a security and reliability platform for software teams  
 **Team size:** 6 members  
 **Purpose:** Define ownership, first deliverables, collaboration rules, and a shared workflow.
 
@@ -36,7 +36,7 @@
 
 ### Member 2 — Frontend Developer
 
-**Primary ownership:** The BuildShield web dashboard.
+**Primary ownership:** The AdvisoryTrail web dashboard.
 
 **Responsibilities**
 - Build the dashboard and navigation.
@@ -232,7 +232,7 @@ Recommended order for the backend/database role:
 6. **Authentication and authorization:** protect endpoints and ensure users can access only permitted repositories and findings.
 7. **Integration and observability:** structured logs, timeouts, retries, and clear failure states.
 
-You do not need to master every topic before starting. Learn what is needed for the next working milestone and apply it directly to BuildShield.
+You do not need to master every topic before starting. Learn what is needed for the next working milestone and apply it directly to AdvisoryTrail.
 
 ---
 

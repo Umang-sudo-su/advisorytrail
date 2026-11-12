@@ -1,4 +1,4 @@
-"""Removes all working data so BuildShield can be tested against real repositories.
+"""Removes all working data so AdvisoryTrail can be tested against real repositories.
 
 Configuration is kept: ``.env``, the schema and the stored GitHub connection (so
 private-repository access still resolves). Every user, repository, scan, finding,
@@ -63,7 +63,7 @@ async def run() -> int:
     counts = await wipe_data()
     removed = sum(counts.values())
 
-    print("BuildShield data reset")
+    print("AdvisoryTrail data reset")
     print("=" * 60)
     for table, total in counts.items():
         if total:
@@ -71,9 +71,9 @@ async def run() -> int:
     print(f"  total rows removed: {removed}")
     print("  kept: .env configuration, schema and the GitHub connection")
 
-    username = os.getenv("BUILDSHIELD_ADMIN_USERNAME", "admin")
-    email = os.getenv("BUILDSHIELD_ADMIN_EMAIL", "admin@buildshield.local")
-    password = os.getenv("BUILDSHIELD_ADMIN_PASSWORD", "")
+    username = os.getenv("ADVISORYTRAIL_ADMIN_USERNAME", "admin")
+    email = os.getenv("ADVISORYTRAIL_ADMIN_EMAIL", "admin@advisorytrail.local")
+    password = os.getenv("ADVISORYTRAIL_ADMIN_PASSWORD", "")
 
     print("\nCreating the first admin account")
     status = await ensure_admin(username, email, password)
@@ -91,7 +91,7 @@ async def run() -> int:
 
 
 def main(argv: list | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Delete all BuildShield working data")
+    parser = argparse.ArgumentParser(description="Delete all AdvisoryTrail working data")
     parser.add_argument("--yes", action="store_true", help="confirm the deletion")
     args = parser.parse_args(argv)
 
