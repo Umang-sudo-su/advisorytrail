@@ -106,8 +106,3 @@ the wizard creates the webhook for you. Otherwise add it by hand:
 
 GitHub cannot call localhost, so a tunnel or a deployed host is required for live
 webhook deliveries. Manual scans from the dashboard work without a webhook.
-
-
-
-
-
