@@ -1,6 +1,15 @@
 # Contributing to AdvisoryTrail
 
-Thanks for helping out. This document covers the local workflow, the checks a change is expected to
+This work is a collective effort, made possible through the contributions, collaboration, and dedication of the individuals listed below.
+
+1. Umang-sudo-su
+2. Saksham-bot-design
+3. shraddha-x
+4. ayushmansarkar5-stack
+5. Shivam-22-su
+6. Urshita-M
+
+This document covers the local workflow, the checks a change is expected to
 pass, and how to report problems.
 
 ## Reporting an issue
@@ -84,10 +93,3 @@ token without pull access created a card that could never be scanned.
 3. Describe the behaviour change and the checks you ran.
 4. Link the issue it closes, if there is one.
 
-## Contributers
-1. Umang-sudo-su
-2. Saksham-bot-design
-3. shraddha-x
-4. ayushmansarkar5-stack
-5. Shivam-22-su
-6. Urshita-M
